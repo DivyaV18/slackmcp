@@ -1,0 +1,6 @@
+fastmcp
+python-dotenv
+requests
+pytest
+slack-sdk
+
