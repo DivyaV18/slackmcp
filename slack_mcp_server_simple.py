@@ -7364,7 +7364,3844 @@ async def slack_join_an_existing_conversation(
             "successful": False
         }
 
+@mcp.tool()
+async def slack_leave_a_conversation(
+    channel: str
+) -> dict:
+    """
+    Leaves a slack conversation given its channel id; fails if leaving as the last member of a private channel 
+    or if used on a slack connect channel.
+    
+    Args:
+        channel (str): Channel ID to leave
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the conversations.leave method
+        response = client.conversations_leave(channel=channel)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Channel not found: No channel found with ID '{channel}'",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Not in channel: The bot is not a member of channel '{channel}'",
+                    "successful": False
+                }
+            elif error == 'cant_leave_general':
+                return {
+                    "data": {},
+                    "error": f"Cannot leave general: Cannot leave the #general channel",
+                    "successful": False
+                }
+            elif error == 'last_member':
+                return {
+                    "data": {},
+                    "error": f"Last member: Cannot leave as the last member of a private channel '{channel}'",
+                    "successful": False
+                }
+            elif error == 'is_archived':
+                return {
+                    "data": {},
+                    "error": f"Channel archived: Channel '{channel}' is archived and cannot be left",
+                    "successful": False
+                }
+            elif error == 'method_not_supported_for_channel_type':
+                return {
+                    "data": {},
+                    "error": f"Method not supported: This method is not supported for the specified channel type (may be a Slack Connect channel)",
+                    "successful": False
+                }
+            elif error == 'slack_connect_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack Connect channel: Cannot leave Slack Connect channel '{channel}'",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to leave channel: {error}",
+                    "successful": False
+                }
+        
+        # Format response data
+        leave_data = {
+            "channel_id": channel,
+            "left_successfully": True,
+            "not_in_channel": response.data.get("not_in_channel", False)
+        }
+        
+        return {
+            "data": {
+                "leave_info": leave_data,
+                "channel_id": channel,
+                "left_successfully": True,
+                "membership_status": "left"
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nNo channel found with ID '{channel}'",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of channel '{channel}'",
+                "successful": False
+            }
+        elif error_code == 'cant_leave_general':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot leave the #general channel.",
+                "successful": False
+            }
+        elif error_code == 'last_member':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot leave as the last member of a private channel '{channel}'.",
+                "successful": False
+            }
+        elif error_code == 'is_archived':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nChannel '{channel}' is archived and cannot be left.",
+                "successful": False
+            }
+        elif error_code == 'method_not_supported_for_channel_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis method is not supported for the specified channel type. This may be a Slack Connect channel.",
+                "successful": False
+            }
+        elif error_code == 'slack_connect_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot leave Slack Connect channel '{channel}'.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to leave channels. The bot needs channels:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:write scope to leave channels.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_accessible_conversations_for_a_user(
+    user: str,
+    cursor: str = "",
+    exclude_archived: bool = True,
+    limit: int = 50,
+    types: str = "public_channel,private_channel,mpim,im"
+) -> dict:
+    """
+    Deprecated: retrieves conversations accessible to a specified user. 
+    use `list conversations` instead.
+    
+    Args:
+        user (str): User ID to get accessible conversations for
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        exclude_archived (bool): Whether to exclude archived conversations (default: True)
+        limit (int): Maximum number of conversations to return (default: 50)
+        types (str): Comma-separated list of conversation types to include (default: "public_channel,private_channel,mpim,im")
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Parse types parameter
+        conversation_types = [t.strip() for t in types.split(',')]
+        
+        # Prepare parameters for conversations.list
+        params = {
+            'types': ','.join(conversation_types),
+            'limit': min(limit, 1000),  # Slack API limit is 1000
+            'exclude_archived': exclude_archived
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Use the conversations.list method
+        response = client.conversations_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"User not found: No user found with ID '{user}'",
+                    "successful": False
+                }
+            elif error == 'invalid_user':
+                return {
+                    "data": {},
+                    "error": f"Invalid user: User ID '{user}' is invalid",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list conversations: {error}",
+                    "successful": False
+                }
+        
+        conversations = response.data.get("channels", [])
+        
+        # Format conversation information
+        conversation_list = []
+        for conv in conversations:
+            conv_info = {
+                "id": conv.get("id"),
+                "name": conv.get("name"),
+                "is_channel": conv.get("is_channel", False),
+                "is_group": conv.get("is_group", False),
+                "is_im": conv.get("is_im", False),
+                "is_mpim": conv.get("is_mpim", False),
+                "is_private": conv.get("is_private", False),
+                "is_archived": conv.get("is_archived", False),
+                "is_general": conv.get("is_general", False),
+                "created": conv.get("created"),
+                "creator": conv.get("creator"),
+                "num_members": conv.get("num_members"),
+                "topic": {
+                    "value": conv.get("topic", {}).get("value", ""),
+                    "creator": conv.get("topic", {}).get("creator", ""),
+                    "last_set": conv.get("topic", {}).get("last_set", 0)
+                },
+                "purpose": {
+                    "value": conv.get("purpose", {}).get("value", ""),
+                    "creator": conv.get("purpose", {}).get("creator", ""),
+                    "last_set": conv.get("purpose", {}).get("last_set", 0)
+                }
+            }
+            conversation_list.append(conv_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "conversations": conversation_list,
+                "total_found": len(conversation_list),
+                "user_id": user,
+                "exclude_archived": exclude_archived,
+                "types": types,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "deprecation_warning": "This tool is deprecated. Please use 'list conversations' instead."
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nNo user found with ID '{user}'",
+                "successful": False
+            }
+        elif error_code == 'invalid_user':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nUser ID '{user}' is invalid",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list conversations. The bot needs channels:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:read scope to list conversations.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_all_channels(
+    channel_name: str = "",
+    cursor: str = "",
+    exclude_archived: bool = True,
+    limit: int = 1,
+    types: str = "public_channel,private_channel,mpim,im"
+) -> dict:
+    """
+    Lists conversations available to the user with various filters and search options.
+    
+    Args:
+        channel_name (str): Filter conversations by channel name (optional)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        exclude_archived (bool): Whether to exclude archived conversations (default: True)
+        limit (int): Maximum number of conversations to return (default: 1)
+        types (str): Comma-separated list of conversation types to include (default: "public_channel,private_channel,mpim,im")
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Parse types parameter
+        conversation_types = [t.strip() for t in types.split(',')]
+        
+        # Prepare parameters for conversations.list
+        params = {
+            'types': ','.join(conversation_types),
+            'limit': min(limit, 1000),  # Slack API limit is 1000
+            'exclude_archived': exclude_archived
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Use the conversations.list method
+        response = client.conversations_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'invalid_types':
+                return {
+                    "data": {},
+                    "error": f"Invalid types: One or more conversation types in '{types}' are invalid",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list conversations: {error}",
+                    "successful": False
+                }
+        
+        conversations = response.data.get("channels", [])
+        
+        # Filter by channel name if provided
+        if channel_name:
+            channel_name_lower = channel_name.lower()
+            conversations = [
+                conv for conv in conversations 
+                if channel_name_lower in conv.get("name", "").lower()
+            ]
+        
+        # Format conversation information
+        conversation_list = []
+        for conv in conversations:
+            conv_info = {
+                "id": conv.get("id"),
+                "name": conv.get("name"),
+                "is_channel": conv.get("is_channel", False),
+                "is_group": conv.get("is_group", False),
+                "is_im": conv.get("is_im", False),
+                "is_mpim": conv.get("is_mpim", False),
+                "is_private": conv.get("is_private", False),
+                "is_archived": conv.get("is_archived", False),
+                "is_general": conv.get("is_general", False),
+                "created": conv.get("created"),
+                "creator": conv.get("creator"),
+                "num_members": conv.get("num_members"),
+                "topic": {
+                    "value": conv.get("topic", {}).get("value", ""),
+                    "creator": conv.get("topic", {}).get("creator", ""),
+                    "last_set": conv.get("topic", {}).get("last_set", 0)
+                },
+                "purpose": {
+                    "value": conv.get("purpose", {}).get("value", ""),
+                    "creator": conv.get("purpose", {}).get("creator", ""),
+                    "last_set": conv.get("purpose", {}).get("last_set", 0)
+                }
+            }
+            conversation_list.append(conv_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "conversations": conversation_list,
+                "total_found": len(conversation_list),
+                "channel_name_filter": channel_name,
+                "exclude_archived": exclude_archived,
+                "types": types,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'invalid_types':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more conversation types in '{types}' are invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list conversations. The bot needs channels:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:read scope to list conversations.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_all_slack_team_channels_with_various_filters(
+    channel_name: str = "",
+    cursor: str = "",
+    exclude_archived: bool = True,
+    limit: int = 1,
+    types: str = "public_channel,private_channel,mpim,im"
+) -> dict:
+    """
+    Deprecated: lists conversations available to the user with various filters and search options. 
+    use `list channels` instead.
+    
+    Args:
+        channel_name (str): Filter conversations by channel name (optional)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        exclude_archived (bool): Whether to exclude archived conversations (default: True)
+        limit (int): Maximum number of conversations to return (default: 1)
+        types (str): Comma-separated list of conversation types to include (default: "public_channel,private_channel,mpim,im")
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Parse types parameter
+        conversation_types = [t.strip() for t in types.split(',')]
+        
+        # Prepare parameters for conversations.list
+        params = {
+            'types': ','.join(conversation_types),
+            'limit': min(limit, 1000),  # Slack API limit is 1000
+            'exclude_archived': exclude_archived
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Use the conversations.list method
+        response = client.conversations_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'invalid_types':
+                return {
+                    "data": {},
+                    "error": f"Invalid types: One or more conversation types in '{types}' are invalid",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list conversations: {error}",
+                    "successful": False
+                }
+        
+        conversations = response.data.get("channels", [])
+        
+        # Filter by channel name if provided
+        if channel_name:
+            channel_name_lower = channel_name.lower()
+            conversations = [
+                conv for conv in conversations 
+                if channel_name_lower in conv.get("name", "").lower()
+            ]
+        
+        # Format conversation information
+        conversation_list = []
+        for conv in conversations:
+            conv_info = {
+                "id": conv.get("id"),
+                "name": conv.get("name"),
+                "is_channel": conv.get("is_channel", False),
+                "is_group": conv.get("is_group", False),
+                "is_im": conv.get("is_im", False),
+                "is_mpim": conv.get("is_mpim", False),
+                "is_private": conv.get("is_private", False),
+                "is_archived": conv.get("is_archived", False),
+                "is_general": conv.get("is_general", False),
+                "created": conv.get("created"),
+                "creator": conv.get("creator"),
+                "num_members": conv.get("num_members"),
+                "topic": {
+                    "value": conv.get("topic", {}).get("value", ""),
+                    "creator": conv.get("topic", {}).get("creator", ""),
+                    "last_set": conv.get("topic", {}).get("last_set", 0)
+                },
+                "purpose": {
+                    "value": conv.get("purpose", {}).get("value", ""),
+                    "creator": conv.get("purpose", {}).get("creator", ""),
+                    "last_set": conv.get("purpose", {}).get("last_set", 0)
+                }
+            }
+            conversation_list.append(conv_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "conversations": conversation_list,
+                "total_found": len(conversation_list),
+                "channel_name_filter": channel_name,
+                "exclude_archived": exclude_archived,
+                "types": types,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit,
+                "deprecation_warning": "This tool is deprecated. Please use 'list channels' instead."
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'invalid_types':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more conversation types in '{types}' are invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list conversations. The bot needs channels:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:read scope to list conversations.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_all_slack_team_users_with_pagination(
+    cursor: str = "",
+    include_locale: bool = False,
+    limit: int = 1
+) -> dict:
+    """
+    Deprecated: retrieves a paginated list of all users in a slack workspace. 
+    use `list all users` instead.
+    
+    Args:
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        include_locale (bool): Whether to include locale information (default: False)
+        limit (int): Maximum number of users to return (default: 1)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for users.list
+        params = {
+            'limit': min(limit, 1000),  # Slack API limit is 1000
+            'include_locale': include_locale
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Use the users.list method
+        response = client.users_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list users: {error}",
+                    "successful": False
+                }
+        
+        users = response.data.get("members", [])
+        
+        # Format user information
+        user_list = []
+        for user in users:
+            user_info = {
+                "id": user.get("id"),
+                "team_id": user.get("team_id"),
+                "name": user.get("name"),
+                "real_name": user.get("real_name"),
+                "display_name": user.get("display_name"),
+                "email": user.get("profile", {}).get("email"),
+                "first_name": user.get("profile", {}).get("first_name"),
+                "last_name": user.get("profile", {}).get("last_name"),
+                "title": user.get("profile", {}).get("title"),
+                "phone": user.get("profile", {}).get("phone"),
+                "skype": user.get("profile", {}).get("skype"),
+                "status": user.get("profile", {}).get("status_text"),
+                "status_emoji": user.get("profile", {}).get("status_emoji"),
+                "image_24": user.get("profile", {}).get("image_24"),
+                "image_32": user.get("profile", {}).get("image_32"),
+                "image_48": user.get("profile", {}).get("image_48"),
+                "image_72": user.get("profile", {}).get("image_72"),
+                "image_192": user.get("profile", {}).get("image_192"),
+                "image_512": user.get("profile", {}).get("image_512"),
+                "is_admin": user.get("is_admin", False),
+                "is_owner": user.get("is_owner", False),
+                "is_primary_owner": user.get("is_primary_owner", False),
+                "is_restricted": user.get("is_restricted", False),
+                "is_ultra_restricted": user.get("is_ultra_restricted", False),
+                "is_bot": user.get("is_bot", False),
+                "is_app_user": user.get("is_app_user", False),
+                "is_invited_user": user.get("is_invited_user", False),
+                "has_2fa": user.get("has_2fa", False),
+                "two_factor_type": user.get("two_factor_type"),
+                "has_files": user.get("has_files", False),
+                "presence": user.get("presence"),
+                "locale": user.get("locale") if include_locale else None,
+                "tz": user.get("tz"),
+                "tz_label": user.get("tz_label"),
+                "tz_offset": user.get("tz_offset"),
+                "updated": user.get("updated"),
+                "deleted": user.get("deleted", False),
+                "color": user.get("color")
+            }
+            user_list.append(user_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "users": user_list,
+                "total_found": len(user_list),
+                "include_locale": include_locale,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit,
+                "deprecation_warning": "This tool is deprecated. Please use 'list all users' instead."
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list users. The bot needs users:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs users:read scope to list users.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_all_users(
+    cursor: str = "",
+    include_locale: bool = False,
+    limit: int = 1
+) -> dict:
+    """
+    Retrieves a paginated list of all users, including comprehensive details, profile information, 
+    status, and team memberships, in a slack workspace; data may not be real-time.
+    
+    Args:
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        include_locale (bool): Whether to include locale information (default: False)
+        limit (int): Maximum number of users to return (default: 1)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for users.list
+        params = {
+            'limit': min(limit, 1000),  # Slack API limit is 1000
+            'include_locale': include_locale
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Use the users.list method
+        response = client.users_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list users: {error}",
+                    "successful": False
+                }
+        
+        users = response.data.get("members", [])
+        
+        # Format user information with comprehensive details
+        user_list = []
+        for user in users:
+            user_info = {
+                "id": user.get("id"),
+                "team_id": user.get("team_id"),
+                "name": user.get("name"),
+                "real_name": user.get("real_name"),
+                "display_name": user.get("display_name"),
+                "email": user.get("profile", {}).get("email"),
+                "first_name": user.get("profile", {}).get("first_name"),
+                "last_name": user.get("profile", {}).get("last_name"),
+                "title": user.get("profile", {}).get("title"),
+                "phone": user.get("profile", {}).get("phone"),
+                "skype": user.get("profile", {}).get("skype"),
+                "status": user.get("profile", {}).get("status_text"),
+                "status_emoji": user.get("profile", {}).get("status_emoji"),
+                "status_expiration": user.get("profile", {}).get("status_expiration"),
+                "image_24": user.get("profile", {}).get("image_24"),
+                "image_32": user.get("profile", {}).get("image_32"),
+                "image_48": user.get("profile", {}).get("image_48"),
+                "image_72": user.get("profile", {}).get("image_72"),
+                "image_192": user.get("profile", {}).get("image_192"),
+                "image_512": user.get("profile", {}).get("image_512"),
+                "image_1024": user.get("profile", {}).get("image_1024"),
+                "image_original": user.get("profile", {}).get("image_original"),
+                "is_custom_image": user.get("profile", {}).get("is_custom_image"),
+                "avatar_hash": user.get("profile", {}).get("avatar_hash"),
+                "is_admin": user.get("is_admin", False),
+                "is_owner": user.get("is_owner", False),
+                "is_primary_owner": user.get("is_primary_owner", False),
+                "is_restricted": user.get("is_restricted", False),
+                "is_ultra_restricted": user.get("is_ultra_restricted", False),
+                "is_bot": user.get("is_bot", False),
+                "is_app_user": user.get("is_app_user", False),
+                "is_invited_user": user.get("is_invited_user", False),
+                "has_2fa": user.get("has_2fa", False),
+                "two_factor_type": user.get("two_factor_type"),
+                "has_files": user.get("has_files", False),
+                "presence": user.get("presence"),
+                "locale": user.get("locale") if include_locale else None,
+                "tz": user.get("tz"),
+                "tz_label": user.get("tz_label"),
+                "tz_offset": user.get("tz_offset"),
+                "updated": user.get("updated"),
+                "deleted": user.get("deleted", False),
+                "color": user.get("color"),
+                "real_name_normalized": user.get("profile", {}).get("real_name_normalized"),
+                "display_name_normalized": user.get("profile", {}).get("display_name_normalized"),
+                "fields": user.get("profile", {}).get("fields", {}),
+                "always_active": user.get("always_active", False),
+                "enterprise_user": user.get("enterprise_user", {}),
+                "is_email_confirmed": user.get("is_email_confirmed", False),
+                "who_can_share_contact_card": user.get("who_can_share_contact_card")
+            }
+            user_list.append(user_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "users": user_list,
+                "total_found": len(user_list),
+                "include_locale": include_locale,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit,
+                "data_freshness": "Data may not be real-time"
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list users. The bot needs users:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs users:read scope to list users.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_all_users_in_a_user_group(
+    usergroup: str,
+    include_disabled: bool = False
+) -> dict:
+    """
+    Retrieves a list of all user ids within a specified slack user group, with an option to include users from disabled groups.
+    
+    Args:
+        usergroup (str): The ID of the user group to list users from (required)
+        include_disabled (bool): Whether to include users from disabled groups (default: False)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for usergroups.users.list
+        params = {
+            'usergroup': usergroup,
+            'include_disabled': include_disabled
+        }
+        
+        # Use the usergroups.users.list method
+        response = client.usergroups_users_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'usergroup_not_found':
+                return {
+                    "data": {},
+                    "error": f"User group not found: The user group '{usergroup}' does not exist or is not accessible",
+                    "successful": False
+                }
+            elif error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list user group members. The bot needs usergroups:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs usergroups:read scope to list user group members.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list user group members: {error}",
+                    "successful": False
+                }
+        
+        # Extract user IDs from the response
+        user_ids = response.data.get("users", [])
+        
+        # Get user group information for context
+        usergroup_info = response.data.get("usergroup", {})
+        
+        return {
+            "data": {
+                "usergroup_id": usergroup,
+                "usergroup_name": usergroup_info.get("name", "Unknown"),
+                "usergroup_handle": usergroup_info.get("handle", ""),
+                "usergroup_description": usergroup_info.get("description", ""),
+                "usergroup_is_active": usergroup_info.get("is_active", True),
+                "usergroup_is_external": usergroup_info.get("is_external", False),
+                "usergroup_created_by": usergroup_info.get("created_by", ""),
+                "usergroup_updated_by": usergroup_info.get("updated_by", ""),
+                "usergroup_created": usergroup_info.get("date_create", 0),
+                "usergroup_updated": usergroup_info.get("date_update", 0),
+                "usergroup_auto_type": usergroup_info.get("auto_type", ""),
+                "usergroup_auto_value": usergroup_info.get("auto_value", ""),
+                "usergroup_team_id": usergroup_info.get("team_id", ""),
+                "user_ids": user_ids,
+                "total_members": len(user_ids),
+                "include_disabled": include_disabled,
+                "membership_type": "User group members"
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'usergroup_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe user group '{usergroup}' does not exist or is not accessible.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list user group members. The bot needs usergroups:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs usergroups:read scope to list user group members.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_conversations(
+    user: str = "",
+    cursor: str = "",
+    exclude_archived: bool = True,
+    limit: int = 50,
+    types: str = "public_channel,private_channel,mpim,im"
+) -> dict:
+    """
+    List conversations (channels/dms) accessible to a specified user (or the authenticated user if no user id is provided), 
+    respecting shared membership for non-public channels.
+    
+    Args:
+        user (str): User ID to list conversations for (optional, defaults to authenticated user)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        exclude_archived (bool): Whether to exclude archived conversations (default: True)
+        limit (int): Maximum number of conversations to return (default: 50)
+        types (str): Comma-separated list of conversation types (default: "public_channel,private_channel,mpim,im")
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for conversations.list
+        params = {
+            'exclude_archived': exclude_archived,
+            'limit': min(limit, 1000),  # Slack API limit is 1000
+            'types': types
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Add user if provided
+        if user:
+            params['user'] = user
+        
+        # Use the conversations.list method
+        response = client.conversations_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"User not found: The user '{user}' does not exist or is not accessible",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list conversations: {error}",
+                    "successful": False
+                }
+        
+        conversations = response.data.get("channels", [])
+        
+        # Format conversation information
+        conversation_list = []
+        for conv in conversations:
+            conv_info = {
+                "id": conv.get("id"),
+                "name": conv.get("name"),
+                "is_channel": conv.get("is_channel", False),
+                "is_group": conv.get("is_group", False),
+                "is_im": conv.get("is_im", False),
+                "is_member": conv.get("is_member", False),
+                "is_private": conv.get("is_private", False),
+                "is_mpim": conv.get("is_mpim", False),
+                "is_archived": conv.get("is_archived", False),
+                "is_general": conv.get("is_general", False),
+                "is_shared": conv.get("is_shared", False),
+                "is_org_shared": conv.get("is_org_shared", False),
+                "is_pending_ext_shared": conv.get("is_pending_ext_shared", False),
+                "is_ext_shared": conv.get("is_ext_shared", False),
+                "is_org_default": conv.get("is_org_default", False),
+                "is_org_mandatory": conv.get("is_org_mandatory", False),
+                "is_moved": conv.get("is_moved", False),
+                "is_open": conv.get("is_open", False),
+                "created": conv.get("created", 0),
+                "creator": conv.get("creator", ""),
+                "is_read_only": conv.get("is_read_only", False),
+                "is_thread_only": conv.get("is_thread_only", False),
+                "is_starred": conv.get("is_starred", False),
+                "is_pinned": conv.get("is_pinned", False),
+                "is_muted": conv.get("is_muted", False),
+                "topic": conv.get("topic", {}),
+                "purpose": conv.get("purpose", {}),
+                "num_members": conv.get("num_members", 0),
+                "locale": conv.get("locale", ""),
+                "unread_count": conv.get("unread_count", 0),
+                "unread_count_display": conv.get("unread_count_display", 0),
+                "priority": conv.get("priority", 0),
+                "conversation_host_id": conv.get("conversation_host_id", ""),
+                "internal_team_ids": conv.get("internal_team_ids", []),
+                "pending_shared": conv.get("pending_shared", []),
+                "context_team_id": conv.get("context_team_id", ""),
+                "updated": conv.get("updated", 0),
+                "parent_conversation": conv.get("parent_conversation", ""),
+                "shared_team_ids": conv.get("shared_team_ids", []),
+                "properties": conv.get("properties", {}),
+                "is_workflow_bot": conv.get("is_workflow_bot", False),
+                "is_global_shared": conv.get("is_global_shared", False),
+                "is_org_default": conv.get("is_org_default", False),
+                "is_org_mandatory": conv.get("is_org_mandatory", False),
+                "is_frozen": conv.get("is_frozen", False),
+                "is_connect": conv.get("is_connect", False),
+                "connect_team_id": conv.get("connect_team_id", ""),
+                "enterprise_id": conv.get("enterprise_id", ""),
+                "channel_email_address": conv.get("channel_email_address", ""),
+                "walking_liam_variant": conv.get("walking_liam_variant", ""),
+                "is_deleted": conv.get("is_deleted", False),
+                "is_forgotten": conv.get("is_forgotten", False),
+                "is_soft_deleted": conv.get("is_soft_deleted", False),
+                "is_im": conv.get("is_im", False),
+                "is_user_deleted": conv.get("is_user_deleted", False),
+                "priority": conv.get("priority", 0),
+                "user": conv.get("user", ""),
+                "name_normalized": conv.get("name_normalized", ""),
+                "previous_names": conv.get("previous_names", []),
+                "conversation_type": "public_channel" if conv.get("is_channel") and not conv.get("is_private") else
+                                  "private_channel" if conv.get("is_channel") and conv.get("is_private") else
+                                  "im" if conv.get("is_im") else
+                                  "mpim" if conv.get("is_mpim") else
+                                  "group" if conv.get("is_group") else "unknown"
+            }
+            conversation_list.append(conv_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "conversations": conversation_list,
+                "total_found": len(conversation_list),
+                "user_id": user if user else "authenticated_user",
+                "exclude_archived": exclude_archived,
+                "types_requested": types,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe user '{user}' does not exist or is not accessible.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list conversations. The bot needs channels:read, groups:read, im:read, mpim:read scopes.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:read, groups:read, im:read, mpim:read scopes to list conversations.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_reminders() -> dict:
+    """
+    Lists all reminders with their details for the authenticated slack user; returns an empty list if no reminders exist.
+    
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        # Use user token for reminder operations (reminders require user tokens)
+        client = get_slack_user_client()
+        
+        # Use the reminders.list method
+        response = client.reminders_list()
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list reminders. The user token needs reminders:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user token needs reminders:read scope to list reminders.",
+                    "successful": False
+                }
+            elif error == 'not_allowed_token_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nReminders require a user token (xoxp-). Please set SLACK_USER_TOKEN with a user token that has reminders:read scope.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list reminders: {error}",
+                    "successful": False
+                }
+        
+        reminders = response.data.get("reminders", [])
+        
+        # Format reminder information
+        reminder_list = []
+        for reminder in reminders:
+            reminder_info = {
+                "id": reminder.get("id"),
+                "creator": reminder.get("creator"),
+                "user": reminder.get("user"),
+                "text": reminder.get("text"),
+                "recurring": reminder.get("recurring", False),
+                "time": reminder.get("time"),
+                "complete_ts": reminder.get("complete_ts"),
+                "recurrence": reminder.get("recurrence", {}),
+                "created": reminder.get("created", 0),
+                "updated": reminder.get("updated", 0),
+                "is_complete": reminder.get("complete_ts") is not None,
+                "completion_time": reminder.get("complete_ts", 0),
+                "reminder_time": reminder.get("time", 0),
+                "reminder_text": reminder.get("text", ""),
+                "is_recurring": reminder.get("recurring", False),
+                "recurrence_pattern": reminder.get("recurrence", {}),
+                "status": "completed" if reminder.get("complete_ts") else "pending"
+            }
+            reminder_list.append(reminder_info)
+        
+        return {
+            "data": {
+                "reminders": reminder_list,
+                "total_found": len(reminder_list),
+                "user_id": response.data.get("user", "unknown"),
+                "reminder_types": {
+                    "pending": len([r for r in reminder_list if not r["is_complete"]]),
+                    "completed": len([r for r in reminder_list if r["is_complete"]]),
+                    "recurring": len([r for r in reminder_list if r["is_recurring"]])
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list reminders. The user token needs reminders:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user token needs reminders:read scope to list reminders.",
+                "successful": False
+            }
+        elif error_code == 'not_allowed_token_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nReminders require a user token (xoxp-). Please set SLACK_USER_TOKEN with a user token that has reminders:read scope.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_remote_files(
+    channel: str = "",
+    cursor: str = "",
+    limit: int = 100,
+    ts_from: float = None,
+    ts_to: float = None
+) -> dict:
+    """
+    Retrieve information about a team's remote files.
+    
+    Args:
+        channel (str): Channel ID to filter files by (optional)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        limit (int): Maximum number of files to return (default: 100)
+        ts_from (float): Start timestamp for filtering files (optional)
+        ts_to (float): End timestamp for filtering files (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for files.remote.list
+        params = {
+            'limit': min(limit, 1000)  # Slack API limit is 1000
+        }
+        
+        # Add optional parameters
+        if channel:
+            params['channel'] = channel
+        if cursor:
+            params['cursor'] = cursor
+        if ts_from is not None:
+            params['ts_from'] = ts_from
+        if ts_to is not None:
+            params['ts_to'] = ts_to
+        
+        # Use the files.remote.list method
+        response = client.files_remote_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Channel not found: The channel '{channel}' does not exist or is not accessible",
+                    "successful": False
+                }
+            elif error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list remote files. The bot needs files:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs files:read scope to list remote files.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list remote files: {error}",
+                    "successful": False
+                }
+        
+        files = response.data.get("files", [])
+        
+        # Format file information
+        file_list = []
+        for file in files:
+            file_info = {
+                "id": file.get("id"),
+                "name": file.get("name"),
+                "title": file.get("title"),
+                "mimetype": file.get("mimetype"),
+                "filetype": file.get("filetype"),
+                "pretty_type": file.get("pretty_type"),
+                "user": file.get("user"),
+                "user_team": file.get("user_team"),
+                "editable": file.get("editable", False),
+                "size": file.get("size", 0),
+                "mode": file.get("mode"),
+                "is_external": file.get("is_external", False),
+                "external_type": file.get("external_type"),
+                "is_public": file.get("is_public", False),
+                "public_url_shared": file.get("public_url_shared", False),
+                "display_as_bot": file.get("display_as_bot", False),
+                "username": file.get("username"),
+                "created": file.get("created", 0),
+                "updated": file.get("updated", 0),
+                "timestamp": file.get("timestamp", 0),
+                "original_attachment_count": file.get("original_attachment_count", 0),
+                "is_starred": file.get("is_starred", False),
+                "has_rich_preview": file.get("has_rich_preview", False),
+                "shares": file.get("shares", {}),
+                "channels": file.get("channels", []),
+                "groups": file.get("groups", []),
+                "ims": file.get("ims", []),
+                "external_id": file.get("external_id"),
+                "external_url": file.get("external_url"),
+                "app_id": file.get("app_id"),
+                "app_name": file.get("app_name"),
+                "thumb_360": file.get("thumb_360"),
+                "thumb_360_w": file.get("thumb_360_w"),
+                "thumb_360_h": file.get("thumb_360_h"),
+                "thumb_480": file.get("thumb_480"),
+                "thumb_480_w": file.get("thumb_480_w"),
+                "thumb_480_h": file.get("thumb_480_h"),
+                "thumb_160": file.get("thumb_160"),
+                "thumb_720": file.get("thumb_720"),
+                "thumb_720_w": file.get("thumb_720_w"),
+                "thumb_720_h": file.get("thumb_720_h"),
+                "thumb_800": file.get("thumb_800"),
+                "thumb_800_w": file.get("thumb_800_w"),
+                "thumb_800_h": file.get("thumb_800_h"),
+                "thumb_960": file.get("thumb_960"),
+                "thumb_960_w": file.get("thumb_960_w"),
+                "thumb_960_h": file.get("thumb_960_h"),
+                "thumb_1024": file.get("thumb_1024"),
+                "thumb_1024_w": file.get("thumb_1024_w"),
+                "thumb_1024_h": file.get("thumb_1024_h"),
+                "image_exif_rotation": file.get("image_exif_rotation"),
+                "original_w": file.get("original_w"),
+                "original_h": file.get("original_h"),
+                "permalink": file.get("permalink"),
+                "permalink_public": file.get("permalink_public"),
+                "is_removed": file.get("is_removed", False),
+                "url_private": file.get("url_private"),
+                "url_private_download": file.get("url_private_download"),
+                "media_display_type": file.get("media_display_type"),
+                "preview": file.get("preview"),
+                "preview_highlight": file.get("preview_highlight"),
+                "lines": file.get("lines"),
+                "lines_more": file.get("lines_more"),
+                "num_stars": file.get("num_stars", 0),
+                "is_public": file.get("is_public", False),
+                "public_url_shared": file.get("public_url_shared", False),
+                "file_access": file.get("file_access"),
+                "filetype_detection": file.get("filetype_detection"),
+                "thumb_video": file.get("thumb_video"),
+                "thumb_video_w": file.get("thumb_video_w"),
+                "thumb_video_h": file.get("thumb_video_h"),
+                "duration_ms": file.get("duration_ms"),
+                "thumb_tiny": file.get("thumb_tiny"),
+                "hd": file.get("hd", False),
+                "subtype": file.get("subtype"),
+                "transcription": file.get("transcription", {}),
+                "mp4": file.get("mp4"),
+                "vtt": file.get("vtt"),
+                "hls": file.get("hls"),
+                "hls_embed": file.get("hls_embed"),
+                "dash": file.get("dash"),
+                "dash_embed": file.get("dash_embed"),
+                "is_animated": file.get("is_animated", False),
+                "is_removed": file.get("is_removed", False),
+                "deanimate_gif": file.get("deanimate_gif"),
+                "deanimate": file.get("deanimate"),
+                "pjs": file.get("pjs"),
+                "pjpeg": file.get("pjpeg"),
+                "comments_count": file.get("comments_count", 0),
+                "initial_comment": file.get("initial_comment", {}),
+                "num_stars": file.get("num_stars", 0),
+                "pinned_to": file.get("pinned_to", []),
+                "reactions": file.get("reactions", []),
+                "is_external": file.get("is_external", False),
+                "external_type": file.get("external_type"),
+                "external_id": file.get("external_id"),
+                "external_url": file.get("external_url"),
+                "app_id": file.get("app_id"),
+                "app_name": file.get("app_name"),
+                "file_access": file.get("file_access"),
+                "filetype_detection": file.get("filetype_detection")
+            }
+            file_list.append(file_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "files": file_list,
+                "total_found": len(file_list),
+                "channel_filter": channel if channel else "all_channels",
+                "ts_from": ts_from,
+                "ts_to": ts_to,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe channel '{channel}' does not exist or is not accessible.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list remote files. The bot needs files:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs files:read scope to list remote files.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_scheduled_messages(
+    channel: str = "",
+    cursor: str = "",
+    latest: str = "",
+    limit: int = 100,
+    oldest: str = ""
+) -> dict:
+    """
+    Retrieves a list of pending (not yet delivered) messages scheduled in a specific slack channel, 
+    or across all accessible channels if no channel id is provided, optionally filtered by time and paginated.
+    
+    Args:
+        channel (str): Channel ID to filter scheduled messages by (optional)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        latest (str): End of time range of messages to include (optional)
+        limit (int): Maximum number of messages to return (default: 100)
+        oldest (str): Start of time range of messages to include (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for chat.scheduledMessages.list
+        params = {
+            'limit': min(limit, 1000)  # Slack API limit is 1000
+        }
+        
+        # Add optional parameters
+        if channel:
+            params['channel'] = channel
+        if cursor:
+            params['cursor'] = cursor
+        if latest:
+            params['latest'] = latest
+        if oldest:
+            params['oldest'] = oldest
+        
+        # Use the chat.scheduledMessages.list method
+        response = client.chat_scheduledMessages_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Channel not found: The channel '{channel}' does not exist or is not accessible",
+                    "successful": False
+                }
+            elif error == 'invalid_time_range':
+                return {
+                    "data": {},
+                    "error": f"Invalid time range: The time range from '{oldest}' to '{latest}' is invalid",
+                    "successful": False
+                }
+            elif error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list scheduled messages. The bot needs chat:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs chat:write scope to list scheduled messages.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list scheduled messages: {error}",
+                    "successful": False
+                }
+        
+        scheduled_messages = response.data.get("scheduled_messages", [])
+        
+        # Format scheduled message information
+        message_list = []
+        for msg in scheduled_messages:
+            message_info = {
+                "id": msg.get("id"),
+                "channel": msg.get("channel"),
+                "post_at": msg.get("post_at"),
+                "date_created": msg.get("date_created"),
+                "text": msg.get("text"),
+                "user": msg.get("user"),
+                "team": msg.get("team"),
+                "blocks": msg.get("blocks", []),
+                "attachments": msg.get("attachments", []),
+                "as_user": msg.get("as_user", False),
+                "icon_emoji": msg.get("icon_emoji"),
+                "icon_url": msg.get("icon_url"),
+                "link_names": msg.get("link_names", False),
+                "mrkdwn": msg.get("mrkdwn", False),
+                "parse": msg.get("parse"),
+                "reply_broadcast": msg.get("reply_broadcast", False),
+                "thread_ts": msg.get("thread_ts"),
+                "unfurl_links": msg.get("unfurl_links", True),
+                "unfurl_media": msg.get("unfurl_media", True),
+                "username": msg.get("username"),
+                "scheduled_message_id": msg.get("scheduled_message_id"),
+                "channel_id": msg.get("channel"),
+                "post_time": msg.get("post_at"),
+                "created_time": msg.get("date_created"),
+                "message_text": msg.get("text", ""),
+                "author_user": msg.get("user"),
+                "team_id": msg.get("team"),
+                "is_thread_reply": bool(msg.get("thread_ts")),
+                "thread_timestamp": msg.get("thread_ts"),
+                "has_blocks": bool(msg.get("blocks")),
+                "has_attachments": bool(msg.get("attachments")),
+                "blocks_count": len(msg.get("blocks", [])),
+                "attachments_count": len(msg.get("attachments", [])),
+                "scheduled_for": msg.get("post_at"),
+                "created_by": msg.get("user"),
+                "message_type": "scheduled_message",
+                "status": "pending",
+                "delivery_status": "not_delivered"
+            }
+            message_list.append(message_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "scheduled_messages": message_list,
+                "total_found": len(message_list),
+                "channel_filter": channel if channel else "all_channels",
+                "time_range": {
+                    "oldest": oldest if oldest else "not_specified",
+                    "latest": latest if latest else "not_specified"
+                },
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit,
+                "message_status": "pending_only"
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe channel '{channel}' does not exist or is not accessible.",
+                "successful": False
+            }
+        elif error_code == 'invalid_time_range':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe time range from '{oldest}' to '{latest}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list scheduled messages. The bot needs chat:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs chat:write scope to list scheduled messages.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_scheduled_messages_in_a_channel(
+    channel: str,
+    cursor: str = "",
+    latest: str = "",
+    limit: int = 100,
+    oldest: str = ""
+) -> dict:
+    """
+    Deprecated: retrieves a list of pending (not yet delivered) messages scheduled in a specific slack channel. 
+    use `list scheduled messages` instead.
+    
+    Args:
+        channel (str): Channel ID to filter scheduled messages by (required)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        latest (str): End of time range of messages to include (optional)
+        limit (int): Maximum number of messages to return (default: 100)
+        oldest (str): Start of time range of messages to include (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for chat.scheduledMessages.list
+        params = {
+            'channel': channel,
+            'limit': min(limit, 1000)  # Slack API limit is 1000
+        }
+        
+        # Add optional parameters
+        if cursor:
+            params['cursor'] = cursor
+        if latest:
+            params['latest'] = latest
+        if oldest:
+            params['oldest'] = oldest
+        
+        # Use the chat.scheduledMessages.list method
+        response = client.chat_scheduledMessages_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Channel not found: The channel '{channel}' does not exist or is not accessible",
+                    "successful": False
+                }
+            elif error == 'invalid_time_range':
+                return {
+                    "data": {},
+                    "error": f"Invalid time range: The time range from '{oldest}' to '{latest}' is invalid",
+                    "successful": False
+                }
+            elif error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list scheduled messages. The bot needs chat:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs chat:write scope to list scheduled messages.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list scheduled messages: {error}",
+                    "successful": False
+                }
+        
+        scheduled_messages = response.data.get("scheduled_messages", [])
+        
+        # Format scheduled message information
+        message_list = []
+        for msg in scheduled_messages:
+            message_info = {
+                "id": msg.get("id"),
+                "channel": msg.get("channel"),
+                "post_at": msg.get("post_at"),
+                "date_created": msg.get("date_created"),
+                "text": msg.get("text"),
+                "user": msg.get("user"),
+                "team": msg.get("team"),
+                "blocks": msg.get("blocks", []),
+                "attachments": msg.get("attachments", []),
+                "as_user": msg.get("as_user", False),
+                "icon_emoji": msg.get("icon_emoji"),
+                "icon_url": msg.get("icon_url"),
+                "link_names": msg.get("link_names", False),
+                "mrkdwn": msg.get("mrkdwn", False),
+                "parse": msg.get("parse"),
+                "reply_broadcast": msg.get("reply_broadcast", False),
+                "thread_ts": msg.get("thread_ts"),
+                "unfurl_links": msg.get("unfurl_links", True),
+                "unfurl_media": msg.get("unfurl_media", True),
+                "username": msg.get("username"),
+                "scheduled_message_id": msg.get("scheduled_message_id"),
+                "channel_id": msg.get("channel"),
+                "post_time": msg.get("post_at"),
+                "created_time": msg.get("date_created"),
+                "message_text": msg.get("text", ""),
+                "author_user": msg.get("user"),
+                "team_id": msg.get("team"),
+                "is_thread_reply": bool(msg.get("thread_ts")),
+                "thread_timestamp": msg.get("thread_ts"),
+                "has_blocks": bool(msg.get("blocks")),
+                "has_attachments": bool(msg.get("attachments")),
+                "blocks_count": len(msg.get("blocks", [])),
+                "attachments_count": len(msg.get("attachments", [])),
+                "scheduled_for": msg.get("post_at"),
+                "created_by": msg.get("user"),
+                "message_type": "scheduled_message",
+                "status": "pending",
+                "delivery_status": "not_delivered"
+            }
+            message_list.append(message_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "scheduled_messages": message_list,
+                "total_found": len(message_list),
+                "channel_filter": channel,
+                "time_range": {
+                    "oldest": oldest if oldest else "not_specified",
+                    "latest": latest if latest else "not_specified"
+                },
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "limit_requested": limit,
+                "message_status": "pending_only",
+                "deprecation_warning": "This tool is deprecated. Use 'list scheduled messages' instead for better functionality."
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe channel '{channel}' does not exist or is not accessible.",
+                "successful": False
+            }
+        elif error_code == 'invalid_time_range':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe time range from '{oldest}' to '{latest}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list scheduled messages. The bot needs chat:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs chat:write scope to list scheduled messages.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_lists_pinned_items_in_a_channel(
+    channel: str
+) -> dict:
+    """
+    Retrieves all messages and files pinned to a specified channel; the caller must have access to this channel.
+    
+    Args:
+        channel (str): Channel ID to retrieve pinned items from (required)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the pins.list method
+        response = client.pins_list(channel=channel)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'channel_not_found':
+                return {
+                    "data": [],
+                    "error": f"Channel not found: The channel '{channel}' does not exist or is not accessible",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": [],
+                    "error": f"Not in channel: The bot is not a member of the channel '{channel}'",
+                    "successful": False
+                }
+            elif error == 'not_authed':
+                return {
+                    "data": [],
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": [],
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": [],
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": [],
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": [],
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list pinned items. The bot needs pins:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": [],
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs pins:read scope to list pinned items.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": [],
+                    "error": f"Failed to list pinned items: {error}",
+                    "successful": False
+                }
+        
+        items = response.data.get("items", [])
+        
+        # Format pinned items information
+        pinned_items = []
+        for item in items:
+            item_info = {
+                "type": item.get("type"),
+                "channel": item.get("channel"),
+                "created": item.get("created"),
+                "created_by": item.get("created_by"),
+                "timestamp": item.get("timestamp"),
+                "message": item.get("message", {}),
+                "file": item.get("file", {}),
+                "comment": item.get("comment", {}),
+                "item_id": item.get("id"),
+                "item_type": item.get("type"),
+                "pinned_by": item.get("created_by"),
+                "pinned_at": item.get("created"),
+                "channel_id": item.get("channel"),
+                "is_message": item.get("type") == "message",
+                "is_file": item.get("type") == "file",
+                "is_comment": item.get("type") == "comment"
+            }
+            
+            # Add message-specific information if it's a message
+            if item.get("type") == "message" and item.get("message"):
+                message = item.get("message", {})
+                item_info.update({
+                    "message_text": message.get("text", ""),
+                    "message_user": message.get("user", ""),
+                    "message_ts": message.get("ts", ""),
+                    "message_blocks": message.get("blocks", []),
+                    "message_attachments": message.get("attachments", []),
+                    "message_thread_ts": message.get("thread_ts", ""),
+                    "message_reply_count": message.get("reply_count", 0),
+                    "message_reply_users": message.get("reply_users", []),
+                    "message_reply_users_count": message.get("reply_users_count", 0),
+                    "message_latest_reply": message.get("latest_reply", ""),
+                    "message_subtype": message.get("subtype", ""),
+                    "message_hidden": message.get("hidden", False),
+                    "message_edited": message.get("edited", {}),
+                    "message_deleted_ts": message.get("deleted_ts", ""),
+                    "message_event_ts": message.get("event_ts", ""),
+                    "message_team": message.get("team", ""),
+                    "message_has_blocks": bool(message.get("blocks")),
+                    "message_has_attachments": bool(message.get("attachments")),
+                    "message_is_thread": bool(message.get("thread_ts")),
+                    "message_blocks_count": len(message.get("blocks", [])),
+                    "message_attachments_count": len(message.get("attachments", []))
+                })
+            
+            # Add file-specific information if it's a file
+            elif item.get("type") == "file" and item.get("file"):
+                file = item.get("file", {})
+                item_info.update({
+                    "file_id": file.get("id", ""),
+                    "file_name": file.get("name", ""),
+                    "file_title": file.get("title", ""),
+                    "file_mimetype": file.get("mimetype", ""),
+                    "file_filetype": file.get("filetype", ""),
+                    "file_size": file.get("size", 0),
+                    "file_url_private": file.get("url_private", ""),
+                    "file_url_private_download": file.get("url_private_download", ""),
+                    "file_thumb_360": file.get("thumb_360", ""),
+                    "file_thumb_480": file.get("thumb_480", ""),
+                    "file_thumb_720": file.get("thumb_720", ""),
+                    "file_thumb_800": file.get("thumb_800", ""),
+                    "file_thumb_960": file.get("thumb_960", ""),
+                    "file_thumb_1024": file.get("thumb_1024", ""),
+                    "file_thumb_160": file.get("thumb_160", ""),
+                    "file_thumb_360_w": file.get("thumb_360_w", 0),
+                    "file_thumb_360_h": file.get("thumb_360_h", 0),
+                    "file_thumb_480_w": file.get("thumb_480_w", 0),
+                    "file_thumb_480_h": file.get("thumb_480_h", 0),
+                    "file_thumb_720_w": file.get("thumb_720_w", 0),
+                    "file_thumb_720_h": file.get("thumb_720_h", 0),
+                    "file_thumb_800_w": file.get("thumb_800_w", 0),
+                    "file_thumb_800_h": file.get("thumb_800_h", 0),
+                    "file_thumb_960_w": file.get("thumb_960_w", 0),
+                    "file_thumb_960_h": file.get("thumb_960_h", 0),
+                    "file_thumb_1024_w": file.get("thumb_1024_w", 0),
+                    "file_thumb_1024_h": file.get("thumb_1024_h", 0),
+                    "file_thumb_160_w": file.get("thumb_160_w", 0),
+                    "file_thumb_160_h": file.get("thumb_160_h", 0),
+                    "file_original_w": file.get("original_w", 0),
+                    "file_original_h": file.get("original_h", 0),
+                    "file_created": file.get("created", 0),
+                    "file_timestamp": file.get("timestamp", 0),
+                    "file_user": file.get("user", ""),
+                    "file_username": file.get("username", ""),
+                    "file_editable": file.get("editable", False),
+                    "file_is_external": file.get("is_external", False),
+                    "file_external_type": file.get("external_type", ""),
+                    "file_is_public": file.get("is_public", False),
+                    "file_public_url_shared": file.get("public_url_shared", False),
+                    "file_display_as_bot": file.get("display_as_bot", False),
+                    "file_mode": file.get("mode", ""),
+                    "file_media_display_type": file.get("media_display_type", ""),
+                    "file_preview": file.get("preview", ""),
+                    "file_preview_highlight": file.get("preview_highlight", ""),
+                    "file_lines": file.get("lines", 0),
+                    "file_lines_more": file.get("lines_more", 0),
+                    "file_thumb_tiny": file.get("thumb_tiny", ""),
+                    "file_thumb_video": file.get("thumb_video", ""),
+                    "file_thumb_video_w": file.get("thumb_video_w", 0),
+                    "file_thumb_video_h": file.get("thumb_video_h", 0),
+                    "file_duration_ms": file.get("duration_ms", 0),
+                    "file_hd": file.get("hd", False),
+                    "file_subtype": file.get("subtype", ""),
+                    "file_transcription": file.get("transcription", {}),
+                    "file_mp4": file.get("mp4", ""),
+                    "file_vtt": file.get("vtt", ""),
+                    "file_hls": file.get("hls", ""),
+                    "file_hls_embed": file.get("hls_embed", ""),
+                    "file_dash": file.get("dash", ""),
+                    "file_dash_embed": file.get("dash_embed", ""),
+                    "file_is_animated": file.get("is_animated", False),
+                    "file_is_removed": file.get("is_removed", False),
+                    "file_deanimate_gif": file.get("deanimate_gif", ""),
+                    "file_deanimate": file.get("deanimate", ""),
+                    "file_pjs": file.get("pjs", ""),
+                    "file_pjpeg": file.get("pjpeg", ""),
+                    "file_comments_count": file.get("comments_count", 0),
+                    "file_initial_comment": file.get("initial_comment", {}),
+                    "file_num_stars": file.get("num_stars", 0),
+                    "file_pinned_to": file.get("pinned_to", []),
+                    "file_reactions": file.get("reactions", []),
+                    "file_shares": file.get("shares", {}),
+                    "file_channels": file.get("channels", []),
+                    "file_groups": file.get("groups", []),
+                    "file_ims": file.get("ims", []),
+                    "file_external_id": file.get("external_id", ""),
+                    "file_external_url": file.get("external_url", ""),
+                    "file_app_id": file.get("app_id", ""),
+                    "file_app_name": file.get("app_name", ""),
+                    "file_has_rich_preview": file.get("has_rich_preview", False),
+                    "file_media_display_type": file.get("media_display_type", ""),
+                    "file_thumbnails": {
+                        "thumb_160": file.get("thumb_160", ""),
+                        "thumb_360": file.get("thumb_360", ""),
+                        "thumb_480": file.get("thumb_480", ""),
+                        "thumb_720": file.get("thumb_720", ""),
+                        "thumb_800": file.get("thumb_800", ""),
+                        "thumb_960": file.get("thumb_960", ""),
+                        "thumb_1024": file.get("thumb_1024", ""),
+                        "thumb_tiny": file.get("thumb_tiny", "")
+                    }
+                })
+            
+            # Add comment-specific information if it's a comment
+            elif item.get("type") == "comment" and item.get("comment"):
+                comment = item.get("comment", {})
+                item_info.update({
+                    "comment_id": comment.get("id", ""),
+                    "comment_text": comment.get("text", ""),
+                    "comment_user": comment.get("user", ""),
+                    "comment_created": comment.get("created", 0),
+                    "comment_timestamp": comment.get("timestamp", ""),
+                    "comment_reply_count": comment.get("reply_count", 0),
+                    "comment_reply_users": comment.get("reply_users", []),
+                    "comment_reply_users_count": comment.get("reply_users_count", 0),
+                    "comment_latest_reply": comment.get("latest_reply", ""),
+                    "comment_subtype": comment.get("subtype", ""),
+                    "comment_hidden": comment.get("hidden", False),
+                    "comment_edited": comment.get("edited", {}),
+                    "comment_deleted_ts": comment.get("deleted_ts", ""),
+                    "comment_event_ts": comment.get("event_ts", ""),
+                    "comment_team": comment.get("team", ""),
+                    "comment_blocks": comment.get("blocks", []),
+                    "comment_attachments": comment.get("attachments", []),
+                    "comment_has_blocks": bool(comment.get("blocks")),
+                    "comment_has_attachments": bool(comment.get("attachments")),
+                    "comment_blocks_count": len(comment.get("blocks", [])),
+                    "comment_attachments_count": len(comment.get("attachments", []))
+                })
+            
+            pinned_items.append(item_info)
+        
+        return {
+            "data": pinned_items,
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'channel_not_found':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nThe channel '{channel}' does not exist or is not accessible.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the channel '{channel}'.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list pinned items. The bot needs pins:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": [],
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs pins:read scope to list pinned items.",
+                "successful": False
+            }
+        return {
+            "data": [],
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": [],
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_starred_items(
+    count: int = 20,
+    cursor: str = "",
+    limit: int = 20,
+    page: int = 1
+) -> dict:
+    """
+    Lists items starred by a user.
+    
+    Args:
+        count (int): Number of items to return (default: 20)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        limit (int): Maximum number of items to return (default: 20)
+        page (int): Page number for pagination (default: 1)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        # Use user token for starred items (stars require user tokens)
+        client = get_slack_user_client()
+        
+        # Prepare parameters for stars.list
+        params = {
+            'count': min(count, 1000),  # Slack API limit is 1000
+            'limit': min(limit, 1000)
+        }
+        
+        # Add optional parameters
+        if cursor:
+            params['cursor'] = cursor
+        if page > 1:
+            params['page'] = page
+        
+        # Use the stars.list method
+        response = client.stars_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'invalid_page':
+                return {
+                    "data": {},
+                    "error": f"Invalid page: Page number '{page}' is invalid",
+                    "successful": False
+                }
+            elif error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list starred items. The user token needs stars:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user token needs stars:read scope to list starred items.",
+                    "successful": False
+                }
+            elif error == 'not_allowed_token_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nStarred items require a user token (xoxp-). Please set SLACK_USER_TOKEN with a user token that has stars:read scope.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list starred items: {error}",
+                    "successful": False
+                }
+        
+        items = response.data.get("items", [])
+        
+        # Format starred items information
+        starred_items = []
+        for item in items:
+            item_info = {
+                "type": item.get("type"),
+                "channel": item.get("channel"),
+                "message": item.get("message", {}),
+                "file": item.get("file", {}),
+                "comment": item.get("comment", {}),
+                "item_id": item.get("id"),
+                "item_type": item.get("type"),
+                "channel_id": item.get("channel"),
+                "is_message": item.get("type") == "message",
+                "is_file": item.get("type") == "file",
+                "is_comment": item.get("type") == "comment",
+                "is_starred": True
+            }
+            
+            # Add message-specific information if it's a message
+            if item.get("type") == "message" and item.get("message"):
+                message = item.get("message", {})
+                item_info.update({
+                    "message_text": message.get("text", ""),
+                    "message_user": message.get("user", ""),
+                    "message_ts": message.get("ts", ""),
+                    "message_blocks": message.get("blocks", []),
+                    "message_attachments": message.get("attachments", []),
+                    "message_thread_ts": message.get("thread_ts", ""),
+                    "message_reply_count": message.get("reply_count", 0),
+                    "message_reply_users": message.get("reply_users", []),
+                    "message_reply_users_count": message.get("reply_users_count", 0),
+                    "message_latest_reply": message.get("latest_reply", ""),
+                    "message_subtype": message.get("subtype", ""),
+                    "message_hidden": message.get("hidden", False),
+                    "message_edited": message.get("edited", {}),
+                    "message_deleted_ts": message.get("deleted_ts", ""),
+                    "message_event_ts": message.get("event_ts", ""),
+                    "message_team": message.get("team", ""),
+                    "message_has_blocks": bool(message.get("blocks")),
+                    "message_has_attachments": bool(message.get("attachments")),
+                    "message_is_thread": bool(message.get("thread_ts")),
+                    "message_blocks_count": len(message.get("blocks", [])),
+                    "message_attachments_count": len(message.get("attachments", []))
+                })
+            
+            # Add file-specific information if it's a file
+            elif item.get("type") == "file" and item.get("file"):
+                file = item.get("file", {})
+                item_info.update({
+                    "file_id": file.get("id", ""),
+                    "file_name": file.get("name", ""),
+                    "file_title": file.get("title", ""),
+                    "file_mimetype": file.get("mimetype", ""),
+                    "file_filetype": file.get("filetype", ""),
+                    "file_size": file.get("size", 0),
+                    "file_url_private": file.get("url_private", ""),
+                    "file_url_private_download": file.get("url_private_download", ""),
+                    "file_thumb_360": file.get("thumb_360", ""),
+                    "file_thumb_480": file.get("thumb_480", ""),
+                    "file_thumb_720": file.get("thumb_720", ""),
+                    "file_thumb_800": file.get("thumb_800", ""),
+                    "file_thumb_960": file.get("thumb_960", ""),
+                    "file_thumb_1024": file.get("thumb_1024", ""),
+                    "file_thumb_160": file.get("thumb_160", ""),
+                    "file_thumb_360_w": file.get("thumb_360_w", 0),
+                    "file_thumb_360_h": file.get("thumb_360_h", 0),
+                    "file_thumb_480_w": file.get("thumb_480_w", 0),
+                    "file_thumb_480_h": file.get("thumb_480_h", 0),
+                    "file_thumb_720_w": file.get("thumb_720_w", 0),
+                    "file_thumb_720_h": file.get("thumb_720_h", 0),
+                    "file_thumb_800_w": file.get("thumb_800_w", 0),
+                    "file_thumb_800_h": file.get("thumb_800_h", 0),
+                    "file_thumb_960_w": file.get("thumb_960_w", 0),
+                    "file_thumb_960_h": file.get("thumb_960_h", 0),
+                    "file_thumb_1024_w": file.get("thumb_1024_w", 0),
+                    "file_thumb_1024_h": file.get("thumb_1024_h", 0),
+                    "file_thumb_160_w": file.get("thumb_160_w", 0),
+                    "file_thumb_160_h": file.get("thumb_160_h", 0),
+                    "file_original_w": file.get("original_w", 0),
+                    "file_original_h": file.get("original_h", 0),
+                    "file_created": file.get("created", 0),
+                    "file_timestamp": file.get("timestamp", 0),
+                    "file_user": file.get("user", ""),
+                    "file_username": file.get("username", ""),
+                    "file_editable": file.get("editable", False),
+                    "file_is_external": file.get("is_external", False),
+                    "file_external_type": file.get("external_type", ""),
+                    "file_is_public": file.get("is_public", False),
+                    "file_public_url_shared": file.get("public_url_shared", False),
+                    "file_display_as_bot": file.get("display_as_bot", False),
+                    "file_mode": file.get("mode", ""),
+                    "file_media_display_type": file.get("media_display_type", ""),
+                    "file_preview": file.get("preview", ""),
+                    "file_preview_highlight": file.get("preview_highlight", ""),
+                    "file_lines": file.get("lines", 0),
+                    "file_lines_more": file.get("lines_more", 0),
+                    "file_thumb_tiny": file.get("thumb_tiny", ""),
+                    "file_thumb_video": file.get("thumb_video", ""),
+                    "file_thumb_video_w": file.get("thumb_video_w", 0),
+                    "file_thumb_video_h": file.get("thumb_video_h", 0),
+                    "file_duration_ms": file.get("duration_ms", 0),
+                    "file_hd": file.get("hd", False),
+                    "file_subtype": file.get("subtype", ""),
+                    "file_transcription": file.get("transcription", {}),
+                    "file_mp4": file.get("mp4", ""),
+                    "file_vtt": file.get("vtt", ""),
+                    "file_hls": file.get("hls", ""),
+                    "file_hls_embed": file.get("hls_embed", ""),
+                    "file_dash": file.get("dash", ""),
+                    "file_dash_embed": file.get("dash_embed", ""),
+                    "file_is_animated": file.get("is_animated", False),
+                    "file_is_removed": file.get("is_removed", False),
+                    "file_deanimate_gif": file.get("deanimate_gif", ""),
+                    "file_deanimate": file.get("deanimate", ""),
+                    "file_pjs": file.get("pjs", ""),
+                    "file_pjpeg": file.get("pjpeg", ""),
+                    "file_comments_count": file.get("comments_count", 0),
+                    "file_initial_comment": file.get("initial_comment", {}),
+                    "file_num_stars": file.get("num_stars", 0),
+                    "file_pinned_to": file.get("pinned_to", []),
+                    "file_reactions": file.get("reactions", []),
+                    "file_shares": file.get("shares", {}),
+                    "file_channels": file.get("channels", []),
+                    "file_groups": file.get("groups", []),
+                    "file_ims": file.get("ims", []),
+                    "file_external_id": file.get("external_id", ""),
+                    "file_external_url": file.get("external_url", ""),
+                    "file_app_id": file.get("app_id", ""),
+                    "file_app_name": file.get("app_name", ""),
+                    "file_has_rich_preview": file.get("has_rich_preview", False),
+                    "file_media_display_type": file.get("media_display_type", ""),
+                    "file_thumbnails": {
+                        "thumb_160": file.get("thumb_160", ""),
+                        "thumb_360": file.get("thumb_360", ""),
+                        "thumb_480": file.get("thumb_480", ""),
+                        "thumb_720": file.get("thumb_720", ""),
+                        "thumb_800": file.get("thumb_800", ""),
+                        "thumb_960": file.get("thumb_960", ""),
+                        "thumb_1024": file.get("thumb_1024", ""),
+                        "thumb_tiny": file.get("thumb_tiny", "")
+                    }
+                })
+            
+            # Add comment-specific information if it's a comment
+            elif item.get("type") == "comment" and item.get("comment"):
+                comment = item.get("comment", {})
+                item_info.update({
+                    "comment_id": comment.get("id", ""),
+                    "comment_text": comment.get("text", ""),
+                    "comment_user": comment.get("user", ""),
+                    "comment_created": comment.get("created", 0),
+                    "comment_timestamp": comment.get("timestamp", ""),
+                    "comment_reply_count": comment.get("reply_count", 0),
+                    "comment_reply_users": comment.get("reply_users", []),
+                    "comment_reply_users_count": comment.get("reply_users_count", 0),
+                    "comment_latest_reply": comment.get("latest_reply", ""),
+                    "comment_subtype": comment.get("subtype", ""),
+                    "comment_hidden": comment.get("hidden", False),
+                    "comment_edited": comment.get("edited", {}),
+                    "comment_deleted_ts": comment.get("deleted_ts", ""),
+                    "comment_event_ts": comment.get("event_ts", ""),
+                    "comment_team": comment.get("team", ""),
+                    "comment_blocks": comment.get("blocks", []),
+                    "comment_attachments": comment.get("attachments", []),
+                    "comment_has_blocks": bool(comment.get("blocks")),
+                    "comment_has_attachments": bool(comment.get("attachments")),
+                    "comment_blocks_count": len(comment.get("blocks", [])),
+                    "comment_attachments_count": len(comment.get("attachments", []))
+                })
+            
+            starred_items.append(item_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "starred_items": starred_items,
+                "total_found": len(starred_items),
+                "count_requested": count,
+                "limit_requested": limit,
+                "page_requested": page,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "pagination": {
+                    "current_page": page,
+                    "items_per_page": count,
+                    "total_items": len(starred_items),
+                    "has_next_page": bool(next_cursor)
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'invalid_page':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPage number '{page}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list starred items. The user token needs stars:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user token needs stars:read scope to list starred items.",
+                "successful": False
+            }
+        elif error_code == 'not_allowed_token_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nStarred items require a user token (xoxp-). Please set SLACK_USER_TOKEN with a user token that has stars:read scope.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_lists_user_s_starred_items_with_pagination(
+    count: int = 20,
+    cursor: str = "",
+    limit: int = 20,
+    page: int = 1
+) -> dict:
+    """
+    Deprecated: lists items starred by a user. use `list starred items` instead.
+    
+    Args:
+        count (int): Number of items to return (default: 20)
+        cursor (str): Pagination cursor for fetching additional results (optional)
+        limit (int): Maximum number of items to return (default: 20)
+        page (int): Page number for pagination (default: 1)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        # Use user token for starred items (stars require user tokens)
+        client = get_slack_user_client()
+        
+        # Prepare parameters for stars.list
+        params = {
+            'count': min(count, 1000),  # Slack API limit is 1000
+            'limit': min(limit, 1000)
+        }
+        
+        # Add optional parameters
+        if cursor:
+            params['cursor'] = cursor
+        if page > 1:
+            params['page'] = page
+        
+        # Use the stars.list method
+        response = client.stars_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'invalid_cursor':
+                return {
+                    "data": {},
+                    "error": f"Invalid cursor: Pagination cursor '{cursor}' is invalid",
+                    "successful": False
+                }
+            elif error == 'invalid_page':
+                return {
+                    "data": {},
+                    "error": f"Invalid page: Page number '{page}' is invalid",
+                    "successful": False
+                }
+            elif error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list starred items. The user token needs stars:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user token needs stars:read scope to list starred items.",
+                    "successful": False
+                }
+            elif error == 'not_allowed_token_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nStarred items require a user token (xoxp-). Please set SLACK_USER_TOKEN with a user token that has stars:read scope.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list starred items: {error}",
+                    "successful": False
+                }
+        
+        items = response.data.get("items", [])
+        
+        # Format starred items information
+        starred_items = []
+        for item in items:
+            item_info = {
+                "type": item.get("type"),
+                "channel": item.get("channel"),
+                "message": item.get("message", {}),
+                "file": item.get("file", {}),
+                "comment": item.get("comment", {}),
+                "item_id": item.get("id"),
+                "item_type": item.get("type"),
+                "channel_id": item.get("channel"),
+                "is_message": item.get("type") == "message",
+                "is_file": item.get("type") == "file",
+                "is_comment": item.get("type") == "comment",
+                "is_starred": True
+            }
+            
+            # Add message-specific information if it's a message
+            if item.get("type") == "message" and item.get("message"):
+                message = item.get("message", {})
+                item_info.update({
+                    "message_text": message.get("text", ""),
+                    "message_user": message.get("user", ""),
+                    "message_ts": message.get("ts", ""),
+                    "message_blocks": message.get("blocks", []),
+                    "message_attachments": message.get("attachments", []),
+                    "message_thread_ts": message.get("thread_ts", ""),
+                    "message_reply_count": message.get("reply_count", 0),
+                    "message_reply_users": message.get("reply_users", []),
+                    "message_reply_users_count": message.get("reply_users_count", 0),
+                    "message_latest_reply": message.get("latest_reply", ""),
+                    "message_subtype": message.get("subtype", ""),
+                    "message_hidden": message.get("hidden", False),
+                    "message_edited": message.get("edited", {}),
+                    "message_deleted_ts": message.get("deleted_ts", ""),
+                    "message_event_ts": message.get("event_ts", ""),
+                    "message_team": message.get("team", ""),
+                    "message_has_blocks": bool(message.get("blocks")),
+                    "message_has_attachments": bool(message.get("attachments")),
+                    "message_is_thread": bool(message.get("thread_ts")),
+                    "message_blocks_count": len(message.get("blocks", [])),
+                    "message_attachments_count": len(message.get("attachments", []))
+                })
+            
+            # Add file-specific information if it's a file
+            elif item.get("type") == "file" and item.get("file"):
+                file = item.get("file", {})
+                item_info.update({
+                    "file_id": file.get("id", ""),
+                    "file_name": file.get("name", ""),
+                    "file_title": file.get("title", ""),
+                    "file_mimetype": file.get("mimetype", ""),
+                    "file_filetype": file.get("filetype", ""),
+                    "file_size": file.get("size", 0),
+                    "file_url_private": file.get("url_private", ""),
+                    "file_url_private_download": file.get("url_private_download", ""),
+                    "file_thumb_360": file.get("thumb_360", ""),
+                    "file_thumb_480": file.get("thumb_480", ""),
+                    "file_thumb_720": file.get("thumb_720", ""),
+                    "file_thumb_800": file.get("thumb_800", ""),
+                    "file_thumb_960": file.get("thumb_960", ""),
+                    "file_thumb_1024": file.get("thumb_1024", ""),
+                    "file_thumb_160": file.get("thumb_160", ""),
+                    "file_thumb_360_w": file.get("thumb_360_w", 0),
+                    "file_thumb_360_h": file.get("thumb_360_h", 0),
+                    "file_thumb_480_w": file.get("thumb_480_w", 0),
+                    "file_thumb_480_h": file.get("thumb_480_h", 0),
+                    "file_thumb_720_w": file.get("thumb_720_w", 0),
+                    "file_thumb_720_h": file.get("thumb_720_h", 0),
+                    "file_thumb_800_w": file.get("thumb_800_w", 0),
+                    "file_thumb_800_h": file.get("thumb_800_h", 0),
+                    "file_thumb_960_w": file.get("thumb_960_w", 0),
+                    "file_thumb_960_h": file.get("thumb_960_h", 0),
+                    "file_thumb_1024_w": file.get("thumb_1024_w", 0),
+                    "file_thumb_1024_h": file.get("thumb_1024_h", 0),
+                    "file_thumb_160_w": file.get("thumb_160_w", 0),
+                    "file_thumb_160_h": file.get("thumb_160_h", 0),
+                    "file_original_w": file.get("original_w", 0),
+                    "file_original_h": file.get("original_h", 0),
+                    "file_created": file.get("created", 0),
+                    "file_timestamp": file.get("timestamp", 0),
+                    "file_user": file.get("user", ""),
+                    "file_username": file.get("username", ""),
+                    "file_editable": file.get("editable", False),
+                    "file_is_external": file.get("is_external", False),
+                    "file_external_type": file.get("external_type", ""),
+                    "file_is_public": file.get("is_public", False),
+                    "file_public_url_shared": file.get("public_url_shared", False),
+                    "file_display_as_bot": file.get("display_as_bot", False),
+                    "file_mode": file.get("mode", ""),
+                    "file_media_display_type": file.get("media_display_type", ""),
+                    "file_preview": file.get("preview", ""),
+                    "file_preview_highlight": file.get("preview_highlight", ""),
+                    "file_lines": file.get("lines", 0),
+                    "file_lines_more": file.get("lines_more", 0),
+                    "file_thumb_tiny": file.get("thumb_tiny", ""),
+                    "file_thumb_video": file.get("thumb_video", ""),
+                    "file_thumb_video_w": file.get("thumb_video_w", 0),
+                    "file_thumb_video_h": file.get("thumb_video_h", 0),
+                    "file_duration_ms": file.get("duration_ms", 0),
+                    "file_hd": file.get("hd", False),
+                    "file_subtype": file.get("subtype", ""),
+                    "file_transcription": file.get("transcription", {}),
+                    "file_mp4": file.get("mp4", ""),
+                    "file_vtt": file.get("vtt", ""),
+                    "file_hls": file.get("hls", ""),
+                    "file_hls_embed": file.get("hls_embed", ""),
+                    "file_dash": file.get("dash", ""),
+                    "file_dash_embed": file.get("dash_embed", ""),
+                    "file_is_animated": file.get("is_animated", False),
+                    "file_is_removed": file.get("is_removed", False),
+                    "file_deanimate_gif": file.get("deanimate_gif", ""),
+                    "file_deanimate": file.get("deanimate", ""),
+                    "file_pjs": file.get("pjs", ""),
+                    "file_pjpeg": file.get("pjpeg", ""),
+                    "file_comments_count": file.get("comments_count", 0),
+                    "file_initial_comment": file.get("initial_comment", {}),
+                    "file_num_stars": file.get("num_stars", 0),
+                    "file_pinned_to": file.get("pinned_to", []),
+                    "file_reactions": file.get("reactions", []),
+                    "file_shares": file.get("shares", {}),
+                    "file_channels": file.get("channels", []),
+                    "file_groups": file.get("groups", []),
+                    "file_ims": file.get("ims", []),
+                    "file_external_id": file.get("external_id", ""),
+                    "file_external_url": file.get("external_url", ""),
+                    "file_app_id": file.get("app_id", ""),
+                    "file_app_name": file.get("app_name", ""),
+                    "file_has_rich_preview": file.get("has_rich_preview", False),
+                    "file_media_display_type": file.get("media_display_type", ""),
+                    "file_thumbnails": {
+                        "thumb_160": file.get("thumb_160", ""),
+                        "thumb_360": file.get("thumb_360", ""),
+                        "thumb_480": file.get("thumb_480", ""),
+                        "thumb_720": file.get("thumb_720", ""),
+                        "thumb_800": file.get("thumb_800", ""),
+                        "thumb_960": file.get("thumb_960", ""),
+                        "thumb_1024": file.get("thumb_1024", ""),
+                        "thumb_tiny": file.get("thumb_tiny", "")
+                    }
+                })
+            
+            # Add comment-specific information if it's a comment
+            elif item.get("type") == "comment" and item.get("comment"):
+                comment = item.get("comment", {})
+                item_info.update({
+                    "comment_id": comment.get("id", ""),
+                    "comment_text": comment.get("text", ""),
+                    "comment_user": comment.get("user", ""),
+                    "comment_created": comment.get("created", 0),
+                    "comment_timestamp": comment.get("timestamp", ""),
+                    "comment_reply_count": comment.get("reply_count", 0),
+                    "comment_reply_users": comment.get("reply_users", []),
+                    "comment_reply_users_count": comment.get("reply_users_count", 0),
+                    "comment_latest_reply": comment.get("latest_reply", ""),
+                    "comment_subtype": comment.get("subtype", ""),
+                    "comment_hidden": comment.get("hidden", False),
+                    "comment_edited": comment.get("edited", {}),
+                    "comment_deleted_ts": comment.get("deleted_ts", ""),
+                    "comment_event_ts": comment.get("event_ts", ""),
+                    "comment_team": comment.get("team", ""),
+                    "comment_blocks": comment.get("blocks", []),
+                    "comment_attachments": comment.get("attachments", []),
+                    "comment_has_blocks": bool(comment.get("blocks")),
+                    "comment_has_attachments": bool(comment.get("attachments")),
+                    "comment_blocks_count": len(comment.get("blocks", [])),
+                    "comment_attachments_count": len(comment.get("attachments", []))
+                })
+            
+            starred_items.append(item_info)
+        
+        # Get pagination info
+        response_metadata = response.data.get("response_metadata", {})
+        next_cursor = response_metadata.get("next_cursor", "")
+        
+        return {
+            "data": {
+                "starred_items": starred_items,
+                "total_found": len(starred_items),
+                "count_requested": count,
+                "limit_requested": limit,
+                "page_requested": page,
+                "next_cursor": next_cursor,
+                "has_more": bool(next_cursor),
+                "pagination": {
+                    "current_page": page,
+                    "items_per_page": count,
+                    "total_items": len(starred_items),
+                    "has_next_page": bool(next_cursor)
+                },
+                "deprecation_warning": "This tool is deprecated. Use 'list starred items' instead for better functionality."
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'invalid_cursor':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPagination cursor '{cursor}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'invalid_page':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nPage number '{page}' is invalid.",
+                "successful": False
+            }
+        elif error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list starred items. The user token needs stars:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user token needs stars:read scope to list starred items.",
+                "successful": False
+            }
+        elif error_code == 'not_allowed_token_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nStarred items require a user token (xoxp-). Please set SLACK_USER_TOKEN with a user token that has stars:read scope.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_team_custom_emojis() -> dict:
+    """
+    Retrieves all custom emojis for the slack workspace (image urls or aliases), not standard unicode emojis; 
+    does not include usage statistics or creation dates.
+    
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the emoji.list method
+        response = client.emoji_list()
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list custom emojis. The bot needs emoji:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs emoji:read scope to list custom emojis.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list custom emojis: {error}",
+                    "successful": False
+                }
+        
+        emoji_data = response.data.get("emoji", {})
+        
+        # Format emoji information
+        custom_emojis = []
+        for emoji_name, emoji_url in emoji_data.items():
+            # Skip standard unicode emojis (they don't have URLs)
+            if emoji_url and not emoji_url.startswith('alias:'):
+                emoji_info = {
+                    "name": emoji_name,
+                    "url": emoji_url,
+                    "type": "custom_emoji",
+                    "is_alias": False,
+                    "is_unicode": False,
+                    "is_custom": True
+                }
+                custom_emojis.append(emoji_info)
+            elif emoji_url and emoji_url.startswith('alias:'):
+                # Handle emoji aliases
+                alias_target = emoji_url.replace('alias:', '')
+                emoji_info = {
+                    "name": emoji_name,
+                    "alias_target": alias_target,
+                    "type": "emoji_alias",
+                    "is_alias": True,
+                    "is_unicode": False,
+                    "is_custom": True
+                }
+                custom_emojis.append(emoji_info)
+        
+        # Sort emojis by name for consistent ordering
+        custom_emojis.sort(key=lambda x: x["name"])
+        
+        return {
+            "data": {
+                "custom_emojis": custom_emojis,
+                "total_found": len(custom_emojis),
+                "emoji_types": {
+                    "custom_emojis": len([e for e in custom_emojis if not e["is_alias"]]),
+                    "emoji_aliases": len([e for e in custom_emojis if e["is_alias"]])
+                },
+                "workspace_info": "Custom emojis for the Slack workspace",
+                "note": "Does not include usage statistics or creation dates"
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list custom emojis. The bot needs emoji:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs emoji:read scope to list custom emojis.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_user_groups_for_team_with_options(
+    include_count: bool = False,
+    include_disabled: bool = False,
+    include_users: bool = False
+) -> dict:
+    """
+    Lists user groups in a slack workspace, including user-created and default groups; 
+    results for large workspaces may be paginated.
+    
+    Args:
+        include_count (bool): Whether to include the number of users in each group (default: False)
+        include_disabled (bool): Whether to include disabled user groups (default: False)
+        include_users (bool): Whether to include the list of users in each group (default: False)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for usergroups.list
+        params = {
+            'include_count': include_count,
+            'include_disabled': include_disabled,
+            'include_users': include_users
+        }
+        
+        # Use the usergroups.list method
+        response = client.usergroups_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list user groups. The bot needs usergroups:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs usergroups:read scope to list user groups.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list user groups: {error}",
+                    "successful": False
+                }
+        
+        usergroups = response.data.get("usergroups", [])
+        
+        # Format user group information
+        user_group_list = []
+        for group in usergroups:
+            group_info = {
+                "id": group.get("id"),
+                "team_id": group.get("team_id"),
+                "name": group.get("name"),
+                "description": group.get("description", ""),
+                "handle": group.get("handle", ""),
+                "is_external": group.get("is_external", False),
+                "date_create": group.get("date_create", 0),
+                "date_update": group.get("date_update", 0),
+                "date_delete": group.get("date_delete", 0),
+                "auto_type": group.get("auto_type", ""),
+                "auto_value": group.get("auto_value", ""),
+                "created_by": group.get("created_by", ""),
+                "updated_by": group.get("updated_by", ""),
+                "deleted_by": group.get("deleted_by", ""),
+                "prefs": group.get("prefs", {}),
+                "user_count": group.get("user_count", 0) if include_count else None,
+                "users": group.get("users", []) if include_users else [],
+                "is_active": group.get("is_active", True),
+                "is_disabled": not group.get("is_active", True),
+                "is_external": group.get("is_external", False),
+                "is_auto_type": bool(group.get("auto_type")),
+                "auto_type_value": group.get("auto_value", ""),
+                "created_timestamp": group.get("date_create", 0),
+                "updated_timestamp": group.get("date_update", 0),
+                "deleted_timestamp": group.get("date_delete", 0),
+                "creator_user": group.get("created_by", ""),
+                "updater_user": group.get("updated_by", ""),
+                "deleter_user": group.get("deleted_by", ""),
+                "preferences": group.get("prefs", {}),
+                "member_count": group.get("user_count", 0) if include_count else None,
+                "member_list": group.get("users", []) if include_users else [],
+                "group_type": "external" if group.get("is_external") else "internal",
+                "status": "active" if group.get("is_active") else "disabled",
+                "auto_configuration": {
+                    "auto_type": group.get("auto_type", ""),
+                    "auto_value": group.get("auto_value", ""),
+                    "is_auto_configured": bool(group.get("auto_type"))
+                },
+                "timestamps": {
+                    "created": group.get("date_create", 0),
+                    "updated": group.get("date_update", 0),
+                    "deleted": group.get("date_delete", 0)
+                },
+                "users_info": {
+                    "created_by": group.get("created_by", ""),
+                    "updated_by": group.get("updated_by", ""),
+                    "deleted_by": group.get("deleted_by", "")
+                }
+            }
+            
+            # Add user-specific information if include_users is True
+            if include_users and group.get("users"):
+                users = group.get("users", [])
+                group_info.update({
+                    "user_ids": users,
+                    "user_count": len(users),
+                    "member_list": users,
+                    "has_members": len(users) > 0,
+                    "member_count": len(users)
+                })
+            
+            # Add count-specific information if include_count is True
+            if include_count:
+                user_count = group.get("user_count", 0)
+                group_info.update({
+                    "user_count": user_count,
+                    "member_count": user_count,
+                    "has_members": user_count > 0,
+                    "is_empty": user_count == 0
+                })
+            
+            user_group_list.append(group_info)
+        
+        # Sort user groups by name for consistent ordering
+        user_group_list.sort(key=lambda x: x["name"])
+        
+        return {
+            "data": {
+                "user_groups": user_group_list,
+                "total_found": len(user_group_list),
+                "include_count": include_count,
+                "include_disabled": include_disabled,
+                "include_users": include_users,
+                "group_types": {
+                    "active": len([g for g in user_group_list if g["is_active"]]),
+                    "disabled": len([g for g in user_group_list if not g["is_active"]]),
+                    "external": len([g for g in user_group_list if g["is_external"]]),
+                    "internal": len([g for g in user_group_list if not g["is_external"]]),
+                    "auto_configured": len([g for g in user_group_list if g["is_auto_type"]])
+                },
+                "workspace_info": "User groups for the Slack workspace",
+                "pagination_note": "Results for large workspaces may be paginated"
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list user groups. The bot needs usergroups:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs usergroups:read scope to list user groups.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
 # Main server function
 if __name__ == "__main__":
     mcp.run()
-
