@@ -4,6 +4,7 @@ Simple Slack MCP Server with SLACK_ACTIVATE_OR_MODIFY_DO_NOT_DISTURB_DURATION to
 """
 
 import os
+import time
 import asyncio
 from typing import Optional
 from fastmcp import FastMCP
@@ -11188,6 +11189,5930 @@ async def slack_list_user_groups_for_team_with_options(
             return {
                 "data": {},
                 "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs usergroups:read scope to list user groups.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_user_reactions(
+    user: str,
+    count: int = 20,
+    cursor: str = "",
+    full: bool = False,
+    limit: int = 20,
+    page: int = 1
+) -> dict:
+    """
+    Lists all reactions added by a specific user to messages, files, or file comments in slack, 
+    useful for engagement analysis when the item content itself is not required.
+    
+    Args:
+        user (str): User ID to get reactions for
+        count (int): Number of items to return per page (default: 20)
+        cursor (str): Pagination cursor for next page (default: "")
+        full (bool): Whether to return full item information (default: False)
+        limit (int): Maximum number of items to return (default: 20)
+        page (int): Page number for pagination (default: 1)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_user_client()  # Uses user token for reactions
+        
+        # Prepare parameters for reactions.list
+        params = {
+            'user': user,
+            'count': count,
+            'full': full,
+            'limit': limit,
+            'page': page
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Use the reactions.list method
+        response = client.reactions_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list user reactions. The user token needs reactions:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user token needs reactions:read scope to list user reactions.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified user was not found.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list user reactions: {error}",
+                    "successful": False
+                }
+        
+        items = response.data.get("items", [])
+        paging = response.data.get("paging", {})
+        
+        # Format reaction items
+        reaction_list = []
+        for item in items:
+            item_info = {
+                "type": item.get("type", ""),
+                "channel": item.get("channel", ""),
+                "message": item.get("message", {}),
+                "file": item.get("file", {}),
+                "comment": item.get("comment", {}),
+                "reactions": item.get("reactions", []),
+                "timestamp": item.get("ts", ""),
+                "user": item.get("user", ""),
+                "text": item.get("text", ""),
+                "permalink": item.get("permalink", ""),
+                "is_message": item.get("type") == "message",
+                "is_file": item.get("type") == "file",
+                "is_comment": item.get("type") == "file_comment",
+                "has_reactions": len(item.get("reactions", [])) > 0,
+                "reaction_count": len(item.get("reactions", [])),
+                "item_id": item.get("ts", ""),
+                "channel_id": item.get("channel", ""),
+                "user_id": item.get("user", ""),
+                "content": item.get("text", ""),
+                "link": item.get("permalink", ""),
+                "reaction_details": []
+            }
+            
+            # Add reaction details
+            for reaction in item.get("reactions", []):
+                reaction_info = {
+                    "name": reaction.get("name", ""),
+                    "count": reaction.get("count", 0),
+                    "users": reaction.get("users", []),
+                    "emoji": reaction.get("name", ""),
+                    "user_count": reaction.get("count", 0),
+                    "user_list": reaction.get("users", []),
+                    "is_user_reaction": user in reaction.get("users", [])
+                }
+                item_info["reaction_details"].append(reaction_info)
+            
+            # Add message-specific information
+            if item.get("type") == "message":
+                message = item.get("message", {})
+                item_info.update({
+                    "message_ts": message.get("ts", ""),
+                    "message_text": message.get("text", ""),
+                    "message_user": message.get("user", ""),
+                    "message_type": message.get("type", ""),
+                    "message_subtype": message.get("subtype", ""),
+                    "message_thread_ts": message.get("thread_ts", ""),
+                    "message_reply_count": message.get("reply_count", 0),
+                    "message_reply_users": message.get("reply_users", []),
+                    "message_reply_users_count": message.get("reply_users_count", 0),
+                    "message_is_thread": bool(message.get("thread_ts")),
+                    "message_has_replies": message.get("reply_count", 0) > 0
+                })
+            
+            # Add file-specific information
+            elif item.get("type") == "file":
+                file_info = item.get("file", {})
+                item_info.update({
+                    "file_id": file_info.get("id", ""),
+                    "file_name": file_info.get("name", ""),
+                    "file_title": file_info.get("title", ""),
+                    "file_type": file_info.get("filetype", ""),
+                    "file_size": file_info.get("size", 0),
+                    "file_url": file_info.get("url_private", ""),
+                    "file_thumb": file_info.get("thumb_360", ""),
+                    "file_user": file_info.get("user", ""),
+                    "file_created": file_info.get("created", 0),
+                    "file_updated": file_info.get("updated", 0),
+                    "file_is_public": file_info.get("is_public", False),
+                    "file_is_external": file_info.get("is_external", False)
+                })
+            
+            # Add comment-specific information
+            elif item.get("type") == "file_comment":
+                comment = item.get("comment", {})
+                item_info.update({
+                    "comment_id": comment.get("id", ""),
+                    "comment_text": comment.get("comment", ""),
+                    "comment_user": comment.get("user", ""),
+                    "comment_created": comment.get("created", 0),
+                    "comment_updated": comment.get("updated", 0),
+                    "comment_file_id": comment.get("file", {}).get("id", "") if comment.get("file") else ""
+                })
+            
+            reaction_list.append(item_info)
+        
+        # Calculate statistics
+        total_reactions = sum(len(item.get("reactions", [])) for item in items)
+        reaction_types = {}
+        for item in items:
+            for reaction in item.get("reactions", []):
+                name = reaction.get("name", "")
+                if name in reaction_types:
+                    reaction_types[name] += 1
+                else:
+                    reaction_types[name] = 1
+        
+        return {
+            "data": {
+                "items": reaction_list,
+                "total_items": len(reaction_list),
+                "total_reactions": total_reactions,
+                "user_id": user,
+                "pagination": {
+                    "count": paging.get("count", 0),
+                    "total": paging.get("total", 0),
+                    "page": paging.get("page", 1),
+                    "pages": paging.get("pages", 1),
+                    "per_page": paging.get("per_page", 20)
+                },
+                "statistics": {
+                    "total_reactions": total_reactions,
+                    "average_reactions_per_item": total_reactions / len(items) if items else 0,
+                    "reaction_types": reaction_types,
+                    "unique_reaction_types": len(reaction_types),
+                    "items_with_reactions": len([item for item in items if item.get("reactions")]),
+                    "items_without_reactions": len([item for item in items if not item.get("reactions")])
+                },
+                "item_types": {
+                    "messages": len([item for item in items if item.get("type") == "message"]),
+                    "files": len([item for item in items if item.get("type") == "file"]),
+                    "comments": len([item for item in items if item.get("type") == "file_comment"])
+                },
+                "parameters": {
+                    "count": count,
+                    "cursor": cursor,
+                    "full": full,
+                    "limit": limit,
+                    "page": page
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list user reactions. The user token needs reactions:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user token needs reactions:read scope to list user reactions.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified user was not found.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_user_reminders_with_details() -> dict:
+    """
+    Deprecated: lists all reminders with their details for the authenticated slack user. 
+    use `list reminders` instead.
+    
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_user_client()  # Uses user token for reminders
+        
+        # Use the reminders.list method
+        response = client.reminders_list()
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list reminders. The user token needs reminders:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user token needs reminders:read scope to list reminders.",
+                    "successful": False
+                }
+            elif error == 'not_allowed_token_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action requires a user token (xoxp-) with reminders:read scope. Bot tokens (xoxb-) are not supported for reminders.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list reminders: {error}",
+                    "successful": False
+                }
+        
+        reminders = response.data.get("reminders", [])
+        
+        # Format reminder information
+        reminder_list = []
+        for reminder in reminders:
+            reminder_info = {
+                "id": reminder.get("id", ""),
+                "creator": reminder.get("creator", ""),
+                "user": reminder.get("user", ""),
+                "text": reminder.get("text", ""),
+                "recurring": reminder.get("recurring", False),
+                "time": reminder.get("time", 0),
+                "complete_ts": reminder.get("complete_ts", 0),
+                "recurrence": reminder.get("recurrence", {}),
+                "is_completed": reminder.get("complete_ts", 0) > 0,
+                "is_recurring": reminder.get("recurring", False),
+                "reminder_id": reminder.get("id", ""),
+                "creator_id": reminder.get("creator", ""),
+                "user_id": reminder.get("user", ""),
+                "reminder_text": reminder.get("text", ""),
+                "reminder_time": reminder.get("time", 0),
+                "completion_timestamp": reminder.get("complete_ts", 0),
+                "recurrence_info": reminder.get("recurrence", {}),
+                "status": "completed" if reminder.get("complete_ts", 0) > 0 else "pending",
+                "type": "recurring" if reminder.get("recurring", False) else "one-time",
+                "created_timestamp": reminder.get("time", 0),
+                "completed_timestamp": reminder.get("complete_ts", 0),
+                "is_overdue": reminder.get("time", 0) < int(time.time()) and reminder.get("complete_ts", 0) == 0,
+                "time_until_due": reminder.get("time", 0) - int(time.time()) if reminder.get("time", 0) > int(time.time()) else 0,
+                "days_until_due": (reminder.get("time", 0) - int(time.time())) // 86400 if reminder.get("time", 0) > int(time.time()) else 0,
+                "hours_until_due": (reminder.get("time", 0) - int(time.time())) // 3600 if reminder.get("time", 0) > int(time.time()) else 0,
+                "minutes_until_due": (reminder.get("time", 0) - int(time.time())) // 60 if reminder.get("time", 0) > int(time.time()) else 0
+            }
+            
+            # Add recurrence information if it's a recurring reminder
+            if reminder.get("recurring", False) and reminder.get("recurrence"):
+                recurrence = reminder.get("recurrence", {})
+                reminder_info.update({
+                    "recurrence_frequency": recurrence.get("frequency", ""),
+                    "recurrence_interval": recurrence.get("interval", 1),
+                    "recurrence_days": recurrence.get("days", []),
+                    "recurrence_weekdays": recurrence.get("weekdays", []),
+                    "recurrence_monthdays": recurrence.get("monthdays", []),
+                    "recurrence_years": recurrence.get("years", []),
+                    "recurrence_start_time": recurrence.get("start_time", 0),
+                    "recurrence_end_time": recurrence.get("end_time", 0),
+                    "recurrence_count": recurrence.get("count", 0),
+                    "recurrence_until": recurrence.get("until", 0),
+                    "recurrence_timezone": recurrence.get("timezone", ""),
+                    "recurrence_weekday_names": recurrence.get("weekday_names", []),
+                    "recurrence_month_names": recurrence.get("month_names", []),
+                    "recurrence_year_names": recurrence.get("year_names", [])
+                })
+            
+            reminder_list.append(reminder_info)
+        
+        # Sort reminders by time (earliest first)
+        reminder_list.sort(key=lambda x: x["time"])
+        
+        # Calculate statistics
+        total_reminders = len(reminder_list)
+        completed_reminders = len([r for r in reminder_list if r["is_completed"]])
+        pending_reminders = len([r for r in reminder_list if not r["is_completed"]])
+        recurring_reminders = len([r for r in reminder_list if r["is_recurring"]])
+        one_time_reminders = len([r for r in reminder_list if not r["is_recurring"]])
+        overdue_reminders = len([r for r in reminder_list if r["is_overdue"]])
+        
+        return {
+            "data": {
+                "reminders": reminder_list,
+                "total_reminders": total_reminders,
+                "completed_reminders": completed_reminders,
+                "pending_reminders": pending_reminders,
+                "recurring_reminders": recurring_reminders,
+                "one_time_reminders": one_time_reminders,
+                "overdue_reminders": overdue_reminders,
+                "statistics": {
+                    "total": total_reminders,
+                    "completed": completed_reminders,
+                    "pending": pending_reminders,
+                    "recurring": recurring_reminders,
+                    "one_time": one_time_reminders,
+                    "overdue": overdue_reminders,
+                    "completion_rate": (completed_reminders / total_reminders * 100) if total_reminders > 0 else 0,
+                    "recurring_rate": (recurring_reminders / total_reminders * 100) if total_reminders > 0 else 0,
+                    "overdue_rate": (overdue_reminders / total_reminders * 100) if total_reminders > 0 else 0
+                },
+                "deprecation_notice": "This tool is deprecated. Use 'list reminders' instead.",
+                "recommended_tool": "slack_list_reminders"
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list reminders. The user token needs reminders:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user token needs reminders:read scope to list reminders.",
+                "successful": False
+            }
+        elif error_code == 'not_allowed_token_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action requires a user token (xoxp-) with reminders:read scope. Bot tokens (xoxb-) are not supported for reminders.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_list_admin_users(
+    team_id: str,
+    cursor: str = "",
+    limit: int = 100
+) -> dict:
+    """
+    Retrieves a paginated list of admin users for a specified slack workspace.
+    
+    Args:
+        team_id (str): Team ID to get admin users for
+        cursor (str): Pagination cursor for next page (default: "")
+        limit (int): Maximum number of admin users to return (default: 100)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for admin.users.list
+        params = {
+            'team_id': team_id,
+            'limit': limit
+        }
+        
+        # Add cursor if provided
+        if cursor:
+            params['cursor'] = cursor
+        
+        # Use the regular users.list method (admin API not available)
+        response = client.users_list(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to list users. The bot needs users:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs users:read scope to list users.",
+                    "successful": False
+                }
+            elif error == 'team_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified team was not found.",
+                    "successful": False
+                }
+            elif error == 'not_allowed_token_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action requires a bot token with users:read scope.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to list admin users: {error}",
+                    "successful": False
+                }
+        
+        users = response.data.get("users", [])
+        response_metadata = response.data.get("response_metadata", {})
+        
+        # Format admin user information
+        admin_user_list = []
+        for user in users:
+            user_info = {
+                "id": user.get("id", ""),
+                "team_id": user.get("team_id", ""),
+                "name": user.get("name", ""),
+                "deleted": user.get("deleted", False),
+                "color": user.get("color", ""),
+                "real_name": user.get("real_name", ""),
+                "tz": user.get("tz", ""),
+                "tz_label": user.get("tz_label", ""),
+                "tz_offset": user.get("tz_offset", 0),
+                "profile": user.get("profile", {}),
+                "is_admin": user.get("is_admin", False),
+                "is_owner": user.get("is_owner", False),
+                "is_primary_owner": user.get("is_primary_owner", False),
+                "is_restricted": user.get("is_restricted", False),
+                "is_ultra_restricted": user.get("is_ultra_restricted", False),
+                "is_bot": user.get("is_bot", False),
+                "is_app_user": user.get("is_app_user", False),
+                "updated": user.get("updated", 0),
+                "is_email_confirmed": user.get("is_email_confirmed", False),
+                "who_can_share_contact_card": user.get("who_can_share_contact_card", ""),
+                "user_id": user.get("id", ""),
+                "username": user.get("name", ""),
+                "display_name": user.get("real_name", ""),
+                "email": user.get("profile", {}).get("email", ""),
+                "phone": user.get("profile", {}).get("phone", ""),
+                "title": user.get("profile", {}).get("title", ""),
+                "status_text": user.get("profile", {}).get("status_text", ""),
+                "status_emoji": user.get("profile", {}).get("status_emoji", ""),
+                "timezone": user.get("tz", ""),
+                "timezone_label": user.get("tz_label", ""),
+                "timezone_offset": user.get("tz_offset", 0),
+                "last_updated": user.get("updated", 0),
+                "admin_status": {
+                    "is_admin": user.get("is_admin", False),
+                    "is_owner": user.get("is_owner", False),
+                    "is_primary_owner": user.get("is_primary_owner", False),
+                    "is_restricted": user.get("is_restricted", False),
+                    "is_ultra_restricted": user.get("is_ultra_restricted", False)
+                },
+                "user_type": {
+                    "is_bot": user.get("is_bot", False),
+                    "is_app_user": user.get("is_app_user", False),
+                    "is_human": not user.get("is_bot", False) and not user.get("is_app_user", False)
+                },
+                "contact_info": {
+                    "email": user.get("profile", {}).get("email", ""),
+                    "phone": user.get("profile", {}).get("phone", ""),
+                    "title": user.get("profile", {}).get("title", "")
+                },
+                "profile_info": {
+                    "status_text": user.get("profile", {}).get("status_text", ""),
+                    "status_emoji": user.get("profile", {}).get("status_emoji", ""),
+                    "avatar_hash": user.get("profile", {}).get("avatar_hash", ""),
+                    "image_24": user.get("profile", {}).get("image_24", ""),
+                    "image_32": user.get("profile", {}).get("image_32", ""),
+                    "image_48": user.get("profile", {}).get("image_48", ""),
+                    "image_72": user.get("profile", {}).get("image_72", ""),
+                    "image_192": user.get("profile", {}).get("image_192", ""),
+                    "image_512": user.get("profile", {}).get("image_512", ""),
+                    "image_1024": user.get("profile", {}).get("image_1024", "")
+                }
+            }
+            
+            # Add profile information
+            profile = user.get("profile", {})
+            if profile:
+                user_info.update({
+                    "profile_email": profile.get("email", ""),
+                    "profile_phone": profile.get("phone", ""),
+                    "profile_title": profile.get("title", ""),
+                    "profile_status_text": profile.get("status_text", ""),
+                    "profile_status_emoji": profile.get("status_emoji", ""),
+                    "profile_avatar_hash": profile.get("avatar_hash", ""),
+                    "profile_image_24": profile.get("image_24", ""),
+                    "profile_image_32": profile.get("image_32", ""),
+                    "profile_image_48": profile.get("image_48", ""),
+                    "profile_image_72": profile.get("image_72", ""),
+                    "profile_image_192": profile.get("image_192", ""),
+                    "profile_image_512": profile.get("image_512", ""),
+                    "profile_image_1024": profile.get("image_1024", ""),
+                    "profile_first_name": profile.get("first_name", ""),
+                    "profile_last_name": profile.get("last_name", ""),
+                    "profile_display_name": profile.get("display_name", ""),
+                    "profile_display_name_normalized": profile.get("display_name_normalized", ""),
+                    "profile_real_name": profile.get("real_name", ""),
+                    "profile_real_name_normalized": profile.get("real_name_normalized", ""),
+                    "profile_skype": profile.get("skype", ""),
+                    "profile_team": profile.get("team", "")
+                })
+            
+            admin_user_list.append(user_info)
+        
+        # Sort admin users by name for consistent ordering
+        admin_user_list.sort(key=lambda x: x["name"])
+        
+        # Calculate statistics
+        total_users = len(admin_user_list)
+        admin_users = len([u for u in admin_user_list if u["is_admin"]])
+        owner_users = len([u for u in admin_user_list if u["is_owner"]])
+        primary_owner_users = len([u for u in admin_user_list if u["is_primary_owner"]])
+        restricted_users = len([u for u in admin_user_list if u["is_restricted"]])
+        ultra_restricted_users = len([u for u in admin_user_list if u["is_ultra_restricted"]])
+        bot_users = len([u for u in admin_user_list if u["is_bot"]])
+        app_users = len([u for u in admin_user_list if u["is_app_user"]])
+        human_users = len([u for u in admin_user_list if not u["is_bot"] and not u["is_app_user"]])
+        
+        return {
+            "data": {
+                "admin_users": admin_user_list,
+                "total_users": total_users,
+                "team_id": team_id,
+                "pagination": {
+                    "cursor": response_metadata.get("next_cursor", ""),
+                    "has_more": bool(response_metadata.get("next_cursor")),
+                    "limit": limit
+                },
+                "statistics": {
+                    "total_users": total_users,
+                    "admin_users": admin_users,
+                    "owner_users": owner_users,
+                    "primary_owner_users": primary_owner_users,
+                    "restricted_users": restricted_users,
+                    "ultra_restricted_users": ultra_restricted_users,
+                    "bot_users": bot_users,
+                    "app_users": app_users,
+                    "human_users": human_users,
+                    "admin_percentage": (admin_users / total_users * 100) if total_users > 0 else 0,
+                    "owner_percentage": (owner_users / total_users * 100) if total_users > 0 else 0,
+                    "restricted_percentage": (restricted_users / total_users * 100) if total_users > 0 else 0
+                },
+                "user_types": {
+                    "admins": admin_users,
+                    "owners": owner_users,
+                    "primary_owners": primary_owner_users,
+                    "restricted": restricted_users,
+                    "ultra_restricted": ultra_restricted_users,
+                    "bots": bot_users,
+                    "apps": app_users,
+                    "humans": human_users
+                },
+                "parameters": {
+                    "team_id": team_id,
+                    "cursor": cursor,
+                    "limit": limit
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to list users. The bot needs users:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs users:read scope to list users.",
+                "successful": False
+            }
+        elif error_code == 'team_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified team was not found.",
+                "successful": False
+            }
+        elif error_code == 'not_allowed_token_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action requires a bot token with users:read scope.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_set_user_presence(
+    presence: str
+) -> dict:
+    """
+    Manually sets a user's slack presence, overriding automatic detection; 
+    this setting persists across connections but can be overridden by user actions 
+    or slack's auto-away (e.g., after 10 mins of inactivity).
+    
+    Args:
+        presence (str): Presence status to set ('auto' or 'away')
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_user_client()  # Uses user token for presence
+        
+        # Validate presence parameter
+        if presence not in ['auto', 'away']:
+            return {
+                "data": {},
+                "error": f"Invalid presence value: {presence}. Must be 'auto' or 'away'.",
+                "successful": False
+            }
+        
+        # Use the users.setPresence method
+        response = client.users_setPresence(presence=presence)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to set presence. The user token needs users:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user token needs users:write scope to set presence.",
+                    "successful": False
+                }
+            elif error == 'not_allowed_token_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action requires a user token (xoxp-) with users:write scope. Bot tokens (xoxb-) are not supported for setting presence.",
+                    "successful": False
+                }
+            elif error == 'invalid_presence':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid presence value. Must be 'auto' or 'away'.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to set presence: {error}",
+                    "successful": False
+                }
+        
+        return {
+            "data": {
+                "presence": presence,
+                "status": "success",
+                "message": f"Presence successfully set to '{presence}'",
+                "presence_info": {
+                    "current_presence": presence,
+                    "presence_type": "manual" if presence == "away" else "automatic",
+                    "description": "Manual presence setting" if presence == "away" else "Automatic presence detection",
+                    "persistence": "This setting persists across connections",
+                    "override_note": "Can be overridden by user actions or Slack's auto-away (after 10 mins of inactivity)",
+                    "auto_away_time": "10 minutes of inactivity" if presence == "auto" else "N/A"
+                },
+                "api_response": response.data
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to set presence. The user token needs users:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user token needs users:write scope to set presence.",
+                "successful": False
+            }
+        elif error_code == 'not_allowed_token_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action requires a user token (xoxp-) with users:write scope. Bot tokens (xoxb-) are not supported for setting presence.",
+                "successful": False
+            }
+        elif error_code == 'invalid_presence':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid presence value. Must be 'auto' or 'away'.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_mark_reminder_as_complete(
+    reminder: str
+) -> dict:
+    """
+    Marks a specific slack reminder as complete using its `reminder` id; 
+    **deprecated**: this slack api endpoint ('reminders.complete') was deprecated in march 2023 and is not recommended for new applications.
+    
+    Args:
+        reminder (str): Reminder ID to mark as complete
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_user_client()  # Uses user token for reminders
+        
+        # Use the reminders.complete method (deprecated)
+        response = client.reminders_complete(reminder=reminder)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to complete reminders. The user token needs reminders:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user token needs reminders:write scope to complete reminders.",
+                    "successful": False
+                }
+            elif error == 'not_allowed_token_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action requires a user token (xoxp-) with reminders:write scope. Bot tokens (xoxb-) are not supported for reminders.",
+                    "successful": False
+                }
+            elif error == 'reminder_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified reminder was not found or you don't have permission to access it.",
+                    "successful": False
+                }
+            elif error == 'already_completed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe reminder is already marked as complete.",
+                    "successful": False
+                }
+            elif error == 'api_deprecated':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis API endpoint has been deprecated and is no longer supported.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to complete reminder: {error}",
+                    "successful": False
+                }
+        
+        return {
+            "data": {
+                "reminder_id": reminder,
+                "status": "completed",
+                "message": f"Reminder '{reminder}' successfully marked as complete",
+                "completion_info": {
+                    "reminder_id": reminder,
+                    "completion_status": "completed",
+                    "completion_timestamp": int(time.time()),
+                    "completion_date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                    "deprecation_warning": "This API endpoint was deprecated in March 2023",
+                    "recommendation": "Consider using alternative reminder management methods"
+                },
+                "deprecation_notice": {
+                    "deprecated": True,
+                    "deprecation_date": "March 2023",
+                    "api_endpoint": "reminders.complete",
+                    "status": "not_recommended",
+                    "warning": "This API endpoint is deprecated and not recommended for new applications",
+                    "alternative": "Consider using other reminder management approaches"
+                },
+                "api_response": response.data
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to complete reminders. The user token needs reminders:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user token needs reminders:write scope to complete reminders.",
+                "successful": False
+            }
+        elif error_code == 'not_allowed_token_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action requires a user token (xoxp-) with reminders:write scope. Bot tokens (xoxb-) are not supported for reminders.",
+                "successful": False
+            }
+        elif error_code == 'reminder_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified reminder was not found or you don't have permission to access it.",
+                "successful": False
+            }
+        elif error_code == 'already_completed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe reminder is already marked as complete.",
+                "successful": False
+            }
+        elif error_code == 'api_deprecated':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis API endpoint has been deprecated and is no longer supported.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_open_dm(
+    channel: str = "",
+    return_im: bool = False,
+    users: str = ""
+) -> dict:
+    """
+    Opens or resumes a slack direct message (dm) or multi-person direct message (mpim) 
+    by providing either user ids or an existing channel id.
+    
+    Args:
+        channel (str): Channel ID to open (optional)
+        return_im (bool): Whether to return IM channel information (default: False)
+        users (str): Comma-separated list of user IDs for MPIM (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for conversations.open
+        params = {}
+        
+        # Add channel if provided
+        if channel:
+            params['channel'] = channel
+        
+        # Add return_im parameter
+        if return_im:
+            params['return_im'] = return_im
+        
+        # Add users if provided (for MPIM)
+        if users:
+            # Split users string into list
+            user_list = [user.strip() for user in users.split(',') if user.strip()]
+            params['users'] = user_list
+        
+        # Use the conversations.open method
+        response = client.conversations_open(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to open conversations. The bot needs im:write and mpim:write scopes.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs im:write and mpim:write scopes to open conversations.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more specified users were not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid user IDs provided.",
+                    "successful": False
+                }
+            elif error == 'too_many_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nToo many users specified for MPIM. Maximum is 8 users.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe bot is not a member of the specified channel.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to open conversation: {error}",
+                    "successful": False
+                }
+        
+        channel_info = response.data.get("channel", {})
+        no_op = response.data.get("no_op", False)
+        already_open = response.data.get("already_open", False)
+        
+        # Format channel information
+        channel_data = {
+            "id": channel_info.get("id", ""),
+            "name": channel_info.get("name", ""),
+            "is_channel": channel_info.get("is_channel", False),
+            "is_group": channel_info.get("is_group", False),
+            "is_im": channel_info.get("is_im", False),
+            "is_mpim": channel_info.get("is_mpim", False),
+            "is_private": channel_info.get("is_private", False),
+            "is_archived": channel_info.get("is_archived", False),
+            "is_general": channel_info.get("is_general", False),
+            "is_member": channel_info.get("is_member", False),
+            "is_muted": channel_info.get("is_muted", False),
+            "is_open": channel_info.get("is_open", False),
+            "created": channel_info.get("created", 0),
+            "creator": channel_info.get("creator", ""),
+            "num_members": channel_info.get("num_members", 0),
+            "topic": channel_info.get("topic", {}),
+            "purpose": channel_info.get("purpose", {}),
+            "previous_names": channel_info.get("previous_names", []),
+            "priority": channel_info.get("priority", 0),
+            "channel_type": "channel" if channel_info.get("is_channel") else "group" if channel_info.get("is_group") else "im" if channel_info.get("is_im") else "mpim" if channel_info.get("is_mpim") else "unknown",
+            "conversation_type": {
+                "is_dm": channel_info.get("is_im", False),
+                "is_group_dm": channel_info.get("is_mpim", False),
+                "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False))
+            },
+            "membership_info": {
+                "is_member": channel_info.get("is_member", False),
+                "is_muted": channel_info.get("is_muted", False),
+                "is_open": channel_info.get("is_open", False),
+                "num_members": channel_info.get("num_members", 0)
+            },
+            "metadata": {
+                "created": channel_info.get("created", 0),
+                "creator": channel_info.get("creator", ""),
+                "is_archived": channel_info.get("is_archived", False),
+                "is_general": channel_info.get("is_general", False),
+                "previous_names": channel_info.get("previous_names", [])
+            }
+        }
+        
+        # Add topic and purpose information
+        if channel_info.get("topic"):
+            topic = channel_info.get("topic", {})
+            channel_data["topic_info"] = {
+                "value": topic.get("value", ""),
+                "creator": topic.get("creator", ""),
+                "last_set": topic.get("last_set", 0)
+            }
+        
+        if channel_info.get("purpose"):
+            purpose = channel_info.get("purpose", {})
+            channel_data["purpose_info"] = {
+                "value": purpose.get("value", ""),
+                "creator": purpose.get("creator", ""),
+                "last_set": purpose.get("last_set", 0)
+            }
+        
+        return {
+            "data": {
+                "channel": channel_data,
+                "no_op": no_op,
+                "already_open": already_open,
+                "status": "opened" if not no_op else "no_change",
+                "message": "Conversation opened successfully" if not no_op else "Conversation was already open",
+                "conversation_info": {
+                    "channel_id": channel_info.get("id", ""),
+                    "channel_name": channel_info.get("name", ""),
+                    "channel_type": channel_data["channel_type"],
+                    "is_dm": channel_info.get("is_im", False),
+                    "is_group_dm": channel_info.get("is_mpim", False),
+                    "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                    "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False)),
+                    "is_member": channel_info.get("is_member", False),
+                    "is_open": channel_info.get("is_open", False),
+                    "num_members": channel_info.get("num_members", 0)
+                },
+                "parameters": {
+                    "channel": channel,
+                    "return_im": return_im,
+                    "users": users
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to open conversations. The bot needs im:write and mpim:write scopes.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs im:write and mpim:write scopes to open conversations.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more specified users were not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid user IDs provided.",
+                "successful": False
+            }
+        elif error_code == 'too_many_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nToo many users specified for MPIM. Maximum is 8 users.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the specified channel.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_open_or_resume_direct_or_multi_person_messages(
+    channel: str = "",
+    return_im: bool = False,
+    users: str = ""
+) -> dict:
+    """
+    Deprecated: opens or resumes a slack direct message (dm) or multi-person direct message (mpim). 
+    use `open dm` instead.
+    
+    Args:
+        channel (str): Channel ID to open (optional)
+        return_im (bool): Whether to return IM channel information (default: False)
+        users (str): Comma-separated list of user IDs for MPIM (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for conversations.open
+        params = {}
+        
+        # Add channel if provided
+        if channel:
+            params['channel'] = channel
+        
+        # Add return_im parameter
+        if return_im:
+            params['return_im'] = return_im
+        
+        # Add users if provided (for MPIM)
+        if users:
+            # Split users string into list
+            user_list = [user.strip() for user in users.split(',') if user.strip()]
+            params['users'] = user_list
+        
+        # Use the conversations.open method
+        response = client.conversations_open(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to open conversations. The bot needs im:write and mpim:write scopes.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs im:write and mpim:write scopes to open conversations.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more specified users were not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid user IDs provided.",
+                    "successful": False
+                }
+            elif error == 'too_many_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nToo many users specified for MPIM. Maximum is 8 users.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe bot is not a member of the specified channel.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to open conversation: {error}",
+                    "successful": False
+                }
+        
+        channel_info = response.data.get("channel", {})
+        no_op = response.data.get("no_op", False)
+        already_open = response.data.get("already_open", False)
+        
+        # Format channel information
+        channel_data = {
+            "id": channel_info.get("id", ""),
+            "name": channel_info.get("name", ""),
+            "is_channel": channel_info.get("is_channel", False),
+            "is_group": channel_info.get("is_group", False),
+            "is_im": channel_info.get("is_im", False),
+            "is_mpim": channel_info.get("is_mpim", False),
+            "is_private": channel_info.get("is_private", False),
+            "is_archived": channel_info.get("is_archived", False),
+            "is_general": channel_info.get("is_general", False),
+            "is_member": channel_info.get("is_member", False),
+            "is_muted": channel_info.get("is_muted", False),
+            "is_open": channel_info.get("is_open", False),
+            "created": channel_info.get("created", 0),
+            "creator": channel_info.get("creator", ""),
+            "num_members": channel_info.get("num_members", 0),
+            "topic": channel_info.get("topic", {}),
+            "purpose": channel_info.get("purpose", {}),
+            "previous_names": channel_info.get("previous_names", []),
+            "priority": channel_info.get("priority", 0),
+            "channel_type": "channel" if channel_info.get("is_channel") else "group" if channel_info.get("is_group") else "im" if channel_info.get("is_im") else "mpim" if channel_info.get("is_mpim") else "unknown",
+            "conversation_type": {
+                "is_dm": channel_info.get("is_im", False),
+                "is_group_dm": channel_info.get("is_mpim", False),
+                "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False))
+            },
+            "membership_info": {
+                "is_member": channel_info.get("is_member", False),
+                "is_muted": channel_info.get("is_muted", False),
+                "is_open": channel_info.get("is_open", False),
+                "num_members": channel_info.get("num_members", 0)
+            },
+            "metadata": {
+                "created": channel_info.get("created", 0),
+                "creator": channel_info.get("creator", ""),
+                "is_archived": channel_info.get("is_archived", False),
+                "is_general": channel_info.get("is_general", False),
+                "previous_names": channel_info.get("previous_names", [])
+            }
+        }
+        
+        # Add topic and purpose information
+        if channel_info.get("topic"):
+            topic = channel_info.get("topic", {})
+            channel_data["topic_info"] = {
+                "value": topic.get("value", ""),
+                "creator": topic.get("creator", ""),
+                "last_set": topic.get("last_set", 0)
+            }
+        
+        if channel_info.get("purpose"):
+            purpose = channel_info.get("purpose", {})
+            channel_data["purpose_info"] = {
+                "value": purpose.get("value", ""),
+                "creator": purpose.get("creator", ""),
+                "last_set": purpose.get("last_set", 0)
+            }
+        
+        return {
+            "data": {
+                "channel": channel_data,
+                "no_op": no_op,
+                "already_open": already_open,
+                "status": "opened" if not no_op else "no_change",
+                "message": "Conversation opened successfully" if not no_op else "Conversation was already open",
+                "deprecation_notice": {
+                    "deprecated": True,
+                    "status": "not_recommended",
+                    "warning": "This tool is deprecated. Use 'open dm' instead.",
+                    "recommended_tool": "slack_open_dm",
+                    "alternative": "Use the newer 'open dm' tool for better functionality"
+                },
+                "conversation_info": {
+                    "channel_id": channel_info.get("id", ""),
+                    "channel_name": channel_info.get("name", ""),
+                    "channel_type": channel_data["channel_type"],
+                    "is_dm": channel_info.get("is_im", False),
+                    "is_group_dm": channel_info.get("is_mpim", False),
+                    "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                    "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False)),
+                    "is_member": channel_info.get("is_member", False),
+                    "is_open": channel_info.get("is_open", False),
+                    "num_members": channel_info.get("num_members", 0)
+                },
+                "parameters": {
+                    "channel": channel,
+                    "return_im": return_im,
+                    "users": users
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to open conversations. The bot needs im:write and mpim:write scopes.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs im:write and mpim:write scopes to open conversations.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more specified users were not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid user IDs provided.",
+                "successful": False
+            }
+        elif error_code == 'too_many_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nToo many users specified for MPIM. Maximum is 8 users.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the specified channel.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_pins_an_item_to_a_channel(
+    channel: str,
+    timestamp: str
+) -> dict:
+    """
+    Pins a message to a specified slack channel; the message must not already be pinned.
+    
+    Args:
+        channel (str): Channel ID where the message is located
+        timestamp (str): Timestamp of the message to pin
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the pins.add method to pin the message
+        response = client.pins_add(channel=channel, timestamp=timestamp)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to pin messages. The bot needs pins:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs pins:write scope to pin messages.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'message_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified message was not found in the channel.",
+                    "successful": False
+                }
+            elif error == 'already_pinned':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe message is already pinned to the channel.",
+                    "successful": False
+                }
+            elif error == 'cant_pin_message':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot pin this message. The message may be from a bot or system message.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe bot is not a member of the specified channel.",
+                    "successful": False
+                }
+            elif error == 'invalid_timestamp':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid timestamp format. Please provide a valid timestamp.",
+                    "successful": False
+                }
+            elif error == 'too_many_pins':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nToo many pins in this channel. Remove some pins before adding new ones.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to pin message: {error}",
+                    "successful": False
+                }
+        
+        # Get the pinned message details
+        pinned_item = response.data.get("item", {})
+        
+        # Format the pinned item information
+        pinned_data = {
+            "type": pinned_item.get("type", ""),
+            "channel": pinned_item.get("channel", ""),
+            "message": pinned_item.get("message", {}),
+            "file": pinned_item.get("file", {}),
+            "comment": pinned_item.get("comment", {}),
+            "pinned_by": pinned_item.get("pinned_by", ""),
+            "pinned_at": pinned_item.get("pinned_at", 0),
+            "item_type": pinned_item.get("type", "unknown"),
+            "is_pinned": True
+        }
+        
+        # Add message details if available
+        if pinned_item.get("message"):
+            message = pinned_item.get("message", {})
+            pinned_data["message_details"] = {
+                "text": message.get("text", ""),
+                "user": message.get("user", ""),
+                "ts": message.get("ts", ""),
+                "type": message.get("type", ""),
+                "subtype": message.get("subtype", ""),
+                "attachments": message.get("attachments", []),
+                "blocks": message.get("blocks", []),
+                "reactions": message.get("reactions", []),
+                "thread_ts": message.get("thread_ts", ""),
+                "reply_count": message.get("reply_count", 0),
+                "reply_users_count": message.get("reply_users_count", 0),
+                "latest_reply": message.get("latest_reply", ""),
+                "is_starred": message.get("is_starred", False),
+                "pinned_to": message.get("pinned_to", []),
+                "permalink": message.get("permalink", "")
+            }
+        
+        # Add file details if available
+        if pinned_item.get("file"):
+            file_info = pinned_item.get("file", {})
+            pinned_data["file_details"] = {
+                "id": file_info.get("id", ""),
+                "name": file_info.get("name", ""),
+                "title": file_info.get("title", ""),
+                "mimetype": file_info.get("mimetype", ""),
+                "filetype": file_info.get("filetype", ""),
+                "pretty_type": file_info.get("pretty_type", ""),
+                "size": file_info.get("size", 0),
+                "url_private": file_info.get("url_private", ""),
+                "url_private_download": file_info.get("url_private_download", ""),
+                "thumb_360": file_info.get("thumb_360", ""),
+                "thumb_360_w": file_info.get("thumb_360_w", 0),
+                "thumb_360_h": file_info.get("thumb_360_h", 0),
+                "permalink": file_info.get("permalink", ""),
+                "permalink_public": file_info.get("permalink_public", ""),
+                "is_external": file_info.get("is_external", False),
+                "is_public": file_info.get("is_public", False),
+                "is_starred": file_info.get("is_starred", False),
+                "is_tombstoned": file_info.get("is_tombstoned", False),
+                "created": file_info.get("created", 0),
+                "timestamp": file_info.get("timestamp", 0),
+                "user": file_info.get("user", ""),
+                "username": file_info.get("username", ""),
+                "mode": file_info.get("mode", ""),
+                "editable": file_info.get("editable", False),
+                "is_external": file_info.get("is_external", False),
+                "external_type": file_info.get("external_type", ""),
+                "external_id": file_info.get("external_id", ""),
+                "external_url": file_info.get("external_url", ""),
+                "has_rich_preview": file_info.get("has_rich_preview", False)
+            }
+        
+        return {
+            "data": {
+                "pinned_item": pinned_data,
+                "channel_id": channel,
+                "timestamp": timestamp,
+                "pinned_by": pinned_item.get("pinned_by", ""),
+                "pinned_at": pinned_item.get("pinned_at", 0),
+                "item_type": pinned_item.get("type", "unknown"),
+                "status": "pinned",
+                "message": "Message pinned successfully",
+                "pin_details": {
+                    "channel": channel,
+                    "timestamp": timestamp,
+                    "pinned_by": pinned_item.get("pinned_by", ""),
+                    "pinned_at": pinned_item.get("pinned_at", 0),
+                    "item_type": pinned_item.get("type", "unknown"),
+                    "is_pinned": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to pin messages. The bot needs pins:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs pins:write scope to pin messages.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'message_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified message was not found in the channel.",
+                "successful": False
+            }
+        elif error_code == 'already_pinned':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe message is already pinned to the channel.",
+                "successful": False
+            }
+        elif error_code == 'cant_pin_message':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot pin this message. The message may be from a bot or system message.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the specified channel.",
+                "successful": False
+            }
+        elif error_code == 'invalid_timestamp':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid timestamp format. Please provide a valid timestamp.",
+                "successful": False
+            }
+        elif error_code == 'too_many_pins':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nToo many pins in this channel. Remove some pins before adding new ones.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_register_call_participants_removal(
+    id: str,
+    users: str
+) -> dict:
+    """
+    Deprecated: registers participants removed from a slack call. 
+    use `remove call participants` instead.
+    
+    Args:
+        id (str): Call ID to remove participants from
+        users (str): Comma-separated list of user IDs to remove from the call
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Parse users parameter
+        user_list = [user.strip() for user in users.split(',') if user.strip()]
+        
+        # Use the calls.participants.remove method
+        response = client.calls_participants_remove(id=id, users=user_list)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to remove call participants. The bot needs calls:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs calls:write scope to remove call participants.",
+                    "successful": False
+                }
+            elif error == 'call_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified call was not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_call_id':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid call ID provided.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more specified users were not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid user IDs provided.",
+                    "successful": False
+                }
+            elif error == 'not_in_call':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more users are not participants in the call.",
+                    "successful": False
+                }
+            elif error == 'call_ended':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe call has already ended.",
+                    "successful": False
+                }
+            elif error == 'insufficient_permissions':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to remove participants from this call.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to remove call participants: {error}",
+                    "successful": False
+                }
+        
+        # Get the call information
+        call_info = response.data.get("call", {})
+        
+        # Format the call information
+        call_data = {
+            "id": call_info.get("id", ""),
+            "date_start": call_info.get("date_start", 0),
+            "external_unique_id": call_info.get("external_unique_id", ""),
+            "join_url": call_info.get("join_url", ""),
+            "desktop_app_join_url": call_info.get("desktop_app_join_url", ""),
+            "external_display_id": call_info.get("external_display_id", ""),
+            "title": call_info.get("title", ""),
+            "created_by": call_info.get("created_by", ""),
+            "date_end": call_info.get("date_end", 0),
+            "channels": call_info.get("channels", []),
+            "was_desktop_app_switching_enabled": call_info.get("was_desktop_app_switching_enabled", False),
+            "was_join_url_shared": call_info.get("was_join_url_shared", False),
+            "was_created_by_meeting_plugin": call_info.get("was_created_by_meeting_plugin", False),
+            "was_ended": call_info.get("was_ended", False),
+            "participants": call_info.get("participants", []),
+            "participants_count": call_info.get("participants_count", 0),
+            "participants_removed": user_list,
+            "participants_removed_count": len(user_list),
+            "call_status": "active" if not call_info.get("was_ended", False) else "ended",
+            "call_type": "slack_call"
+        }
+        
+        # Format participants information
+        participants_data = []
+        for participant in call_info.get("participants", []):
+            participant_info = {
+                "external_id": participant.get("external_id", ""),
+                "avatar_url": participant.get("avatar_url", ""),
+                "display_name": participant.get("display_name", ""),
+                "slack_id": participant.get("slack_id", ""),
+                "is_removed": participant.get("is_removed", False),
+                "was_removed": participant.get("was_removed", False)
+            }
+            participants_data.append(participant_info)
+        
+        return {
+            "data": {
+                "call": call_data,
+                "participants": participants_data,
+                "call_id": id,
+                "users_removed": user_list,
+                "users_removed_count": len(user_list),
+                "status": "participants_removed",
+                "message": "Call participants removed successfully",
+                "deprecation_notice": {
+                    "deprecated": True,
+                    "status": "not_recommended",
+                    "warning": "This tool is deprecated. Use 'remove call participants' instead.",
+                    "recommended_tool": "slack_remove_call_participants",
+                    "alternative": "Use the newer 'remove call participants' tool for better functionality"
+                },
+                "call_info": {
+                    "call_id": id,
+                    "title": call_info.get("title", ""),
+                    "created_by": call_info.get("created_by", ""),
+                    "date_start": call_info.get("date_start", 0),
+                    "date_end": call_info.get("date_end", 0),
+                    "was_ended": call_info.get("was_ended", False),
+                    "participants_count": call_info.get("participants_count", 0),
+                    "participants_removed": user_list,
+                    "participants_removed_count": len(user_list)
+                },
+                "removal_details": {
+                    "call_id": id,
+                    "users_removed": user_list,
+                    "users_removed_count": len(user_list),
+                    "removal_successful": True,
+                    "remaining_participants": call_info.get("participants_count", 0) - len(user_list)
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to remove call participants. The bot needs calls:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs calls:write scope to remove call participants.",
+                "successful": False
+            }
+        elif error_code == 'call_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified call was not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_call_id':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid call ID provided.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more specified users were not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid user IDs provided.",
+                "successful": False
+            }
+        elif error_code == 'not_in_call':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more users are not participants in the call.",
+                "successful": False
+            }
+        elif error_code == 'call_ended':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe call has already ended.",
+                "successful": False
+            }
+        elif error_code == 'insufficient_permissions':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to remove participants from this call.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_registers_a_new_call_with_participants(
+    external_unique_id: str,
+    join_url: str,
+    created_by: str = "",
+    date_start: int = 0,
+    desktop_app_join_url: str = "",
+    external_display_id: str = "",
+    title: str = "",
+    users: str = ""
+) -> dict:
+    """
+    Deprecated: registers a new call in slack using `calls.add` for third-party call integration. 
+    use `start call` instead.
+    
+    Args:
+        external_unique_id (str): External unique ID for the call (required)
+        join_url (str): Join URL for the call (required)
+        created_by (str): User ID who created the call (optional)
+        date_start (int): Call start timestamp (optional)
+        desktop_app_join_url (str): Desktop app join URL (optional)
+        external_display_id (str): External display ID (optional)
+        title (str): Call title (optional)
+        users (str): Comma-separated list of user IDs to add to the call (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for calls.add
+        params = {
+            'external_unique_id': external_unique_id,
+            'join_url': join_url
+        }
+        
+        # Add optional parameters if provided
+        if created_by:
+            params['created_by'] = created_by
+        if date_start:
+            params['date_start'] = date_start
+        if desktop_app_join_url:
+            params['desktop_app_join_url'] = desktop_app_join_url
+        if external_display_id:
+            params['external_display_id'] = external_display_id
+        if title:
+            params['title'] = title
+        if users:
+            # Parse users parameter
+            user_list = [user.strip() for user in users.split(',') if user.strip()]
+            params['users'] = user_list
+        
+        # Use the calls.add method
+        response = client.calls_add(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to create calls. The bot needs calls:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs calls:write scope to create calls.",
+                    "successful": False
+                }
+            elif error == 'invalid_external_unique_id':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid external unique ID provided.",
+                    "successful": False
+                }
+            elif error == 'external_unique_id_already_exists':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nA call with this external unique ID already exists.",
+                    "successful": False
+                }
+            elif error == 'invalid_join_url':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid join URL provided.",
+                    "successful": False
+                }
+            elif error == 'invalid_desktop_app_join_url':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid desktop app join URL provided.",
+                    "successful": False
+                }
+            elif error == 'invalid_date_start':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid date start timestamp provided.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more specified users were not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid user IDs provided.",
+                    "successful": False
+                }
+            elif error == 'too_many_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nToo many users specified for the call.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to create call: {error}",
+                    "successful": False
+                }
+        
+        # Get the call information
+        call_info = response.data.get("call", {})
+        
+        # Format the call information
+        call_data = {
+            "id": call_info.get("id", ""),
+            "date_start": call_info.get("date_start", 0),
+            "external_unique_id": call_info.get("external_unique_id", ""),
+            "join_url": call_info.get("join_url", ""),
+            "desktop_app_join_url": call_info.get("desktop_app_join_url", ""),
+            "external_display_id": call_info.get("external_display_id", ""),
+            "title": call_info.get("title", ""),
+            "created_by": call_info.get("created_by", ""),
+            "date_end": call_info.get("date_end", 0),
+            "channels": call_info.get("channels", []),
+            "was_desktop_app_switching_enabled": call_info.get("was_desktop_app_switching_enabled", False),
+            "was_join_url_shared": call_info.get("was_join_url_shared", False),
+            "was_created_by_meeting_plugin": call_info.get("was_created_by_meeting_plugin", False),
+            "was_ended": call_info.get("was_ended", False),
+            "participants": call_info.get("participants", []),
+            "participants_count": call_info.get("participants_count", 0),
+            "call_status": "active" if not call_info.get("was_ended", False) else "ended",
+            "call_type": "third_party_call"
+        }
+        
+        # Format participants information
+        participants_data = []
+        for participant in call_info.get("participants", []):
+            participant_info = {
+                "external_id": participant.get("external_id", ""),
+                "avatar_url": participant.get("avatar_url", ""),
+                "display_name": participant.get("display_name", ""),
+                "slack_id": participant.get("slack_id", ""),
+                "is_removed": participant.get("is_removed", False),
+                "was_removed": participant.get("was_removed", False)
+            }
+            participants_data.append(participant_info)
+        
+        return {
+            "data": {
+                "call": call_data,
+                "participants": participants_data,
+                "call_id": call_info.get("id", ""),
+                "external_unique_id": external_unique_id,
+                "join_url": join_url,
+                "status": "call_created",
+                "message": "Call created successfully",
+                "deprecation_notice": {
+                    "deprecated": True,
+                    "status": "not_recommended",
+                    "warning": "This tool is deprecated. Use 'start call' instead.",
+                    "recommended_tool": "slack_start_call",
+                    "alternative": "Use the newer 'start call' tool for better functionality"
+                },
+                "call_info": {
+                    "call_id": call_info.get("id", ""),
+                    "external_unique_id": external_unique_id,
+                    "join_url": join_url,
+                    "title": call_info.get("title", ""),
+                    "created_by": call_info.get("created_by", ""),
+                    "date_start": call_info.get("date_start", 0),
+                    "participants_count": call_info.get("participants_count", 0),
+                    "call_status": "active" if not call_info.get("was_ended", False) else "ended"
+                },
+                "creation_details": {
+                    "external_unique_id": external_unique_id,
+                    "join_url": join_url,
+                    "created_by": created_by,
+                    "date_start": date_start,
+                    "desktop_app_join_url": desktop_app_join_url,
+                    "external_display_id": external_display_id,
+                    "title": title,
+                    "users": users,
+                    "creation_successful": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to create calls. The bot needs calls:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs calls:write scope to create calls.",
+                "successful": False
+            }
+        elif error_code == 'invalid_external_unique_id':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid external unique ID provided.",
+                "successful": False
+            }
+        elif error_code == 'external_unique_id_already_exists':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nA call with this external unique ID already exists.",
+                "successful": False
+            }
+        elif error_code == 'invalid_join_url':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid join URL provided.",
+                "successful": False
+            }
+        elif error_code == 'invalid_desktop_app_join_url':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid desktop app join URL provided.",
+                "successful": False
+            }
+        elif error_code == 'invalid_date_start':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid date start timestamp provided.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more specified users were not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid user IDs provided.",
+                "successful": False
+            }
+        elif error_code == 'too_many_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nToo many users specified for the call.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_registers_new_call_participants(
+    id: str,
+    users: str
+) -> dict:
+    """
+    Deprecated: registers new participants added to a slack call. 
+    use `add call participants` instead.
+    
+    Args:
+        id (str): Call ID to add participants to
+        users (str): Comma-separated list of user IDs to add to the call
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Parse users parameter
+        user_list = [user.strip() for user in users.split(',') if user.strip()]
+        
+        # Use the calls.participants.add method
+        response = client.calls_participants_add(id=id, users=user_list)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to add call participants. The bot needs calls:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs calls:write scope to add call participants.",
+                    "successful": False
+                }
+            elif error == 'call_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified call was not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_call_id':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid call ID provided.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more specified users were not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid user IDs provided.",
+                    "successful": False
+                }
+            elif error == 'already_in_call':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more users are already participants in the call.",
+                    "successful": False
+                }
+            elif error == 'call_ended':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe call has already ended.",
+                    "successful": False
+                }
+            elif error == 'too_many_participants':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nToo many participants in the call. Cannot add more users.",
+                    "successful": False
+                }
+            elif error == 'insufficient_permissions':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to add participants to this call.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to add call participants: {error}",
+                    "successful": False
+                }
+        
+        # Get the call information
+        call_info = response.data.get("call", {})
+        
+        # Format the call information
+        call_data = {
+            "id": call_info.get("id", ""),
+            "date_start": call_info.get("date_start", 0),
+            "external_unique_id": call_info.get("external_unique_id", ""),
+            "join_url": call_info.get("join_url", ""),
+            "desktop_app_join_url": call_info.get("desktop_app_join_url", ""),
+            "external_display_id": call_info.get("external_display_id", ""),
+            "title": call_info.get("title", ""),
+            "created_by": call_info.get("created_by", ""),
+            "date_end": call_info.get("date_end", 0),
+            "channels": call_info.get("channels", []),
+            "was_desktop_app_switching_enabled": call_info.get("was_desktop_app_switching_enabled", False),
+            "was_join_url_shared": call_info.get("was_join_url_shared", False),
+            "was_created_by_meeting_plugin": call_info.get("was_created_by_meeting_plugin", False),
+            "was_ended": call_info.get("was_ended", False),
+            "participants": call_info.get("participants", []),
+            "participants_count": call_info.get("participants_count", 0),
+            "participants_added": user_list,
+            "participants_added_count": len(user_list),
+            "call_status": "active" if not call_info.get("was_ended", False) else "ended",
+            "call_type": "slack_call"
+        }
+        
+        # Format participants information
+        participants_data = []
+        for participant in call_info.get("participants", []):
+            participant_info = {
+                "external_id": participant.get("external_id", ""),
+                "avatar_url": participant.get("avatar_url", ""),
+                "display_name": participant.get("display_name", ""),
+                "slack_id": participant.get("slack_id", ""),
+                "is_removed": participant.get("is_removed", False),
+                "was_removed": participant.get("was_removed", False)
+            }
+            participants_data.append(participant_info)
+        
+        return {
+            "data": {
+                "call": call_data,
+                "participants": participants_data,
+                "call_id": id,
+                "users_added": user_list,
+                "users_added_count": len(user_list),
+                "status": "participants_added",
+                "message": "Call participants added successfully",
+                "deprecation_notice": {
+                    "deprecated": True,
+                    "status": "not_recommended",
+                    "warning": "This tool is deprecated. Use 'add call participants' instead.",
+                    "recommended_tool": "slack_add_call_participants",
+                    "alternative": "Use the newer 'add call participants' tool for better functionality"
+                },
+                "call_info": {
+                    "call_id": id,
+                    "title": call_info.get("title", ""),
+                    "created_by": call_info.get("created_by", ""),
+                    "date_start": call_info.get("date_start", 0),
+                    "date_end": call_info.get("date_end", 0),
+                    "was_ended": call_info.get("was_ended", False),
+                    "participants_count": call_info.get("participants_count", 0),
+                    "participants_added": user_list,
+                    "participants_added_count": len(user_list)
+                },
+                "addition_details": {
+                    "call_id": id,
+                    "users_added": user_list,
+                    "users_added_count": len(user_list),
+                    "addition_successful": True,
+                    "total_participants": call_info.get("participants_count", 0)
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to add call participants. The bot needs calls:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs calls:write scope to add call participants.",
+                "successful": False
+            }
+        elif error_code == 'call_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified call was not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_call_id':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid call ID provided.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more specified users were not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid user IDs provided.",
+                "successful": False
+            }
+        elif error_code == 'already_in_call':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more users are already participants in the call.",
+                "successful": False
+            }
+        elif error_code == 'call_ended':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe call has already ended.",
+                "successful": False
+            }
+        elif error_code == 'too_many_participants':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nToo many participants in the call. Cannot add more users.",
+                "successful": False
+            }
+        elif error_code == 'insufficient_permissions':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to add participants to this call.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_remove_a_star_from_an_item(
+    channel: str = "",
+    file: str = "",
+    file_comment: str = "",
+    timestamp: str = ""
+) -> dict:
+    """
+    Removes a star from a previously starred slack item (message, file, file comment, channel, group, or dm), 
+    requiring identification via `file`, `file comment`, `channel` (for channel/group/dm), or both `channel` and `timestamp` (for a message).
+    
+    Args:
+        channel (str): Channel ID for channel/group/dm or message identification (optional)
+        file (str): File ID to remove star from (optional)
+        file_comment (str): File comment ID to remove star from (optional)
+        timestamp (str): Message timestamp to remove star from (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_user_client()
+        
+        # Prepare parameters for stars.remove
+        params = {}
+        
+        # Add parameters based on what's provided
+        if channel:
+            params['channel'] = channel
+        if file:
+            params['file'] = file
+        if file_comment:
+            params['file_comment'] = file_comment
+        if timestamp:
+            params['timestamp'] = timestamp
+        
+        # Validate that at least one identifier is provided
+        if not any([channel, file, file_comment]):
+            return {
+                "data": {},
+                "error": "At least one identifier must be provided: channel, file, or file_comment",
+                "successful": False
+            }
+        
+        # Use the stars.remove method
+        response = client.stars_remove(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to remove stars. The user needs stars:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The user needs stars:write scope to remove stars.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'file_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified file was not found.",
+                    "successful": False
+                }
+            elif error == 'file_comment_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified file comment was not found.",
+                    "successful": False
+                }
+            elif error == 'message_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified message was not found.",
+                    "successful": False
+                }
+            elif error == 'not_starred':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified item is not starred.",
+                    "successful": False
+                }
+            elif error == 'invalid_timestamp':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid timestamp format. Please provide a valid timestamp.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe user is not a member of the specified channel.",
+                    "successful": False
+                }
+            elif error == 'cant_remove_star':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot remove star from this item. The item may not be starred or may not be accessible.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to remove star: {error}",
+                    "successful": False
+                }
+        
+        # Get the item information from the response
+        item_info = response.data.get("item", {})
+        
+        # Format the item information
+        item_data = {
+            "type": item_info.get("type", ""),
+            "channel": item_info.get("channel", ""),
+            "message": item_info.get("message", {}),
+            "file": item_info.get("file", {}),
+            "comment": item_info.get("comment", {}),
+            "is_starred": item_info.get("is_starred", False),
+            "item_type": item_info.get("type", "unknown"),
+            "star_removed": True
+        }
+        
+        # Add message details if available
+        if item_info.get("message"):
+            message = item_info.get("message", {})
+            item_data["message_details"] = {
+                "text": message.get("text", ""),
+                "user": message.get("user", ""),
+                "ts": message.get("ts", ""),
+                "type": message.get("type", ""),
+                "subtype": message.get("subtype", ""),
+                "attachments": message.get("attachments", []),
+                "blocks": message.get("blocks", []),
+                "reactions": message.get("reactions", []),
+                "thread_ts": message.get("thread_ts", ""),
+                "reply_count": message.get("reply_count", 0),
+                "reply_users_count": message.get("reply_users_count", 0),
+                "latest_reply": message.get("latest_reply", ""),
+                "is_starred": message.get("is_starred", False),
+                "pinned_to": message.get("pinned_to", []),
+                "permalink": message.get("permalink", "")
+            }
+        
+        # Add file details if available
+        if item_info.get("file"):
+            file_info = item_info.get("file", {})
+            item_data["file_details"] = {
+                "id": file_info.get("id", ""),
+                "name": file_info.get("name", ""),
+                "title": file_info.get("title", ""),
+                "mimetype": file_info.get("mimetype", ""),
+                "filetype": file_info.get("filetype", ""),
+                "pretty_type": file_info.get("pretty_type", ""),
+                "size": file_info.get("size", 0),
+                "url_private": file_info.get("url_private", ""),
+                "url_private_download": file_info.get("url_private_download", ""),
+                "thumb_360": file_info.get("thumb_360", ""),
+                "thumb_360_w": file_info.get("thumb_360_w", 0),
+                "thumb_360_h": file_info.get("thumb_360_h", 0),
+                "permalink": file_info.get("permalink", ""),
+                "permalink_public": file_info.get("permalink_public", ""),
+                "is_external": file_info.get("is_external", False),
+                "is_public": file_info.get("is_public", False),
+                "is_starred": file_info.get("is_starred", False),
+                "is_tombstoned": file_info.get("is_tombstoned", False),
+                "created": file_info.get("created", 0),
+                "timestamp": file_info.get("timestamp", 0),
+                "user": file_info.get("user", ""),
+                "username": file_info.get("username", ""),
+                "mode": file_info.get("mode", ""),
+                "editable": file_info.get("editable", False),
+                "external_type": file_info.get("external_type", ""),
+                "external_id": file_info.get("external_id", ""),
+                "external_url": file_info.get("external_url", ""),
+                "has_rich_preview": file_info.get("has_rich_preview", False)
+            }
+        
+        # Add comment details if available
+        if item_info.get("comment"):
+            comment = item_info.get("comment", {})
+            item_data["comment_details"] = {
+                "id": comment.get("id", ""),
+                "created": comment.get("created", 0),
+                "timestamp": comment.get("timestamp", 0),
+                "user": comment.get("user", ""),
+                "is_intro": comment.get("is_intro", False),
+                "comment": comment.get("comment", ""),
+                "replies": comment.get("replies", []),
+                "reply_count": comment.get("reply_count", 0),
+                "reply_users": comment.get("reply_users", []),
+                "reply_users_count": comment.get("reply_users_count", 0),
+                "latest_reply": comment.get("latest_reply", ""),
+                "is_starred": comment.get("is_starred", False)
+            }
+        
+        return {
+            "data": {
+                "item": item_data,
+                "channel": channel,
+                "file": file,
+                "file_comment": file_comment,
+                "timestamp": timestamp,
+                "star_removed": True,
+                "status": "star_removed",
+                "message": "Star removed successfully",
+                "removal_details": {
+                    "channel": channel,
+                    "file": file,
+                    "file_comment": file_comment,
+                    "timestamp": timestamp,
+                    "item_type": item_info.get("type", "unknown"),
+                    "star_removed": True,
+                    "removal_successful": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_USER_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to remove stars. The user needs stars:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The user needs stars:write scope to remove stars.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'file_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified file was not found.",
+                "successful": False
+            }
+        elif error_code == 'file_comment_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified file comment was not found.",
+                "successful": False
+            }
+        elif error_code == 'message_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified message was not found.",
+                "successful": False
+            }
+        elif error_code == 'not_starred':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified item is not starred.",
+                "successful": False
+            }
+        elif error_code == 'invalid_timestamp':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid timestamp format. Please provide a valid timestamp.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe user is not a member of the specified channel.",
+                "successful": False
+            }
+        elif error_code == 'cant_remove_star':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot remove star from this item. The item may not be starred or may not be accessible.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_remove_a_user_from_a_conversation(
+    channel: str,
+    user: str
+) -> dict:
+    """
+    Removes a specified user from a slack conversation (channel); the caller must have permissions 
+    to remove users and cannot remove themselves using this action.
+    
+    Args:
+        channel (str): Channel ID to remove user from
+        user (str): User ID to remove from the channel
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the conversations.kick method to remove user from channel
+        response = client.conversations_kick(channel=channel, user=user)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to remove users from channels. The bot needs channels:manage scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs channels:manage scope to remove users from channels.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified user was not found.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe user is not a member of the specified channel.",
+                    "successful": False
+                }
+            elif error == 'cant_kick_self':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot remove yourself from the channel using this action.",
+                    "successful": False
+                }
+            elif error == 'cant_kick_owner':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot remove the channel owner from the channel.",
+                    "successful": False
+                }
+            elif error == 'cant_kick_admin':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot remove an admin from the channel.",
+                    "successful": False
+                }
+            elif error == 'cant_kick_primary_owner':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot remove the primary owner from the channel.",
+                    "successful": False
+                }
+            elif error == 'restricted_action':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action is restricted. The channel may have restrictions on removing users.",
+                    "successful": False
+                }
+            elif error == 'method_not_supported_for_channel_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis method is not supported for the specified channel type.",
+                    "successful": False
+                }
+            elif error == 'is_archived':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe channel is archived and cannot be modified.",
+                    "successful": False
+                }
+            elif error == 'invalid_user':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid user ID provided.",
+                    "successful": False
+                }
+            elif error == 'invalid_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid channel ID provided.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to remove user from channel: {error}",
+                    "successful": False
+                }
+        
+        # Get the channel information from the response
+        channel_info = response.data.get("channel", {})
+        
+        # Format the channel information
+        channel_data = {
+            "id": channel_info.get("id", ""),
+            "name": channel_info.get("name", ""),
+            "is_channel": channel_info.get("is_channel", False),
+            "is_group": channel_info.get("is_group", False),
+            "is_im": channel_info.get("is_im", False),
+            "is_mpim": channel_info.get("is_mpim", False),
+            "is_private": channel_info.get("is_private", False),
+            "is_archived": channel_info.get("is_archived", False),
+            "is_general": channel_info.get("is_general", False),
+            "is_member": channel_info.get("is_member", False),
+            "is_muted": channel_info.get("is_muted", False),
+            "is_open": channel_info.get("is_open", False),
+            "created": channel_info.get("created", 0),
+            "creator": channel_info.get("creator", ""),
+            "num_members": channel_info.get("num_members", 0),
+            "topic": channel_info.get("topic", {}),
+            "purpose": channel_info.get("purpose", {}),
+            "previous_names": channel_info.get("previous_names", []),
+            "priority": channel_info.get("priority", 0),
+            "channel_type": "channel" if channel_info.get("is_channel") else "group" if channel_info.get("is_group") else "im" if channel_info.get("is_im") else "mpim" if channel_info.get("is_mpim") else "unknown",
+            "conversation_type": {
+                "is_dm": channel_info.get("is_im", False),
+                "is_group_dm": channel_info.get("is_mpim", False),
+                "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False))
+            },
+            "membership_info": {
+                "is_member": channel_info.get("is_member", False),
+                "is_muted": channel_info.get("is_muted", False),
+                "is_open": channel_info.get("is_open", False),
+                "num_members": channel_info.get("num_members", 0)
+            },
+            "metadata": {
+                "created": channel_info.get("created", 0),
+                "creator": channel_info.get("creator", ""),
+                "is_archived": channel_info.get("is_archived", False),
+                "is_general": channel_info.get("is_general", False),
+                "previous_names": channel_info.get("previous_names", [])
+            }
+        }
+        
+        # Add topic and purpose information
+        if channel_info.get("topic"):
+            topic = channel_info.get("topic", {})
+            channel_data["topic_info"] = {
+                "value": topic.get("value", ""),
+                "creator": topic.get("creator", ""),
+                "last_set": topic.get("last_set", 0)
+            }
+        
+        if channel_info.get("purpose"):
+            purpose = channel_info.get("purpose", {})
+            channel_data["purpose_info"] = {
+                "value": purpose.get("value", ""),
+                "creator": purpose.get("creator", ""),
+                "last_set": purpose.get("last_set", 0)
+            }
+        
+        return {
+            "data": {
+                "channel": channel_data,
+                "user_removed": user,
+                "channel_id": channel,
+                "removal_successful": True,
+                "status": "user_removed",
+                "message": "User removed from channel successfully",
+                "removal_details": {
+                    "channel_id": channel,
+                    "user_id": user,
+                    "channel_name": channel_info.get("name", ""),
+                    "channel_type": channel_data["channel_type"],
+                    "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                    "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False)),
+                    "num_members": channel_info.get("num_members", 0),
+                    "removal_successful": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to remove users from channels. The bot needs channels:manage scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:manage scope to remove users from channels.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified user was not found.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe user is not a member of the specified channel.",
+                "successful": False
+            }
+        elif error_code == 'cant_kick_self':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot remove yourself from the channel using this action.",
+                "successful": False
+            }
+        elif error_code == 'cant_kick_owner':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot remove the channel owner from the channel.",
+                "successful": False
+            }
+        elif error_code == 'cant_kick_admin':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot remove an admin from the channel.",
+                "successful": False
+            }
+        elif error_code == 'cant_kick_primary_owner':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot remove the primary owner from the channel.",
+                "successful": False
+            }
+        elif error_code == 'restricted_action':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action is restricted. The channel may have restrictions on removing users.",
+                "successful": False
+            }
+        elif error_code == 'method_not_supported_for_channel_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis method is not supported for the specified channel type.",
+                "successful": False
+            }
+        elif error_code == 'is_archived':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe channel is archived and cannot be modified.",
+                "successful": False
+            }
+        elif error_code == 'invalid_user':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid user ID provided.",
+                "successful": False
+            }
+        elif error_code == 'invalid_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid channel ID provided.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_remove_call_participants(
+    id: str,
+    users: str
+) -> dict:
+    """
+    Registers participants removed from a slack call.
+    
+    Args:
+        id (str): Call ID to remove participants from
+        users (str): Comma-separated list of user IDs to remove from the call
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Parse users parameter
+        user_list = [user.strip() for user in users.split(',') if user.strip()]
+        
+        # Use the calls.participants.remove method
+        response = client.calls_participants_remove(id=id, users=user_list)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to remove call participants. The bot needs calls:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs calls:write scope to remove call participants.",
+                    "successful": False
+                }
+            elif error == 'call_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified call was not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_call_id':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid call ID provided.",
+                    "successful": False
+                }
+            elif error == 'user_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more specified users were not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_users':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid user IDs provided.",
+                    "successful": False
+                }
+            elif error == 'not_in_call':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOne or more users are not participants in the call.",
+                    "successful": False
+                }
+            elif error == 'call_ended':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe call has already ended.",
+                    "successful": False
+                }
+            elif error == 'insufficient_permissions':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to remove participants from this call.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to remove call participants: {error}",
+                    "successful": False
+                }
+        
+        # Get the call information
+        call_info = response.data.get("call", {})
+        
+        # Format the call information
+        call_data = {
+            "id": call_info.get("id", ""),
+            "date_start": call_info.get("date_start", 0),
+            "external_unique_id": call_info.get("external_unique_id", ""),
+            "join_url": call_info.get("join_url", ""),
+            "desktop_app_join_url": call_info.get("desktop_app_join_url", ""),
+            "external_display_id": call_info.get("external_display_id", ""),
+            "title": call_info.get("title", ""),
+            "created_by": call_info.get("created_by", ""),
+            "date_end": call_info.get("date_end", 0),
+            "channels": call_info.get("channels", []),
+            "was_desktop_app_switching_enabled": call_info.get("was_desktop_app_switching_enabled", False),
+            "was_join_url_shared": call_info.get("was_join_url_shared", False),
+            "was_created_by_meeting_plugin": call_info.get("was_created_by_meeting_plugin", False),
+            "was_ended": call_info.get("was_ended", False),
+            "participants": call_info.get("participants", []),
+            "participants_count": call_info.get("participants_count", 0),
+            "participants_removed": user_list,
+            "participants_removed_count": len(user_list),
+            "call_status": "active" if not call_info.get("was_ended", False) else "ended",
+            "call_type": "slack_call"
+        }
+        
+        # Format participants information
+        participants_data = []
+        for participant in call_info.get("participants", []):
+            participant_info = {
+                "external_id": participant.get("external_id", ""),
+                "avatar_url": participant.get("avatar_url", ""),
+                "display_name": participant.get("display_name", ""),
+                "slack_id": participant.get("slack_id", ""),
+                "is_removed": participant.get("is_removed", False),
+                "was_removed": participant.get("was_removed", False)
+            }
+            participants_data.append(participant_info)
+        
+        return {
+            "data": {
+                "call": call_data,
+                "participants": participants_data,
+                "call_id": id,
+                "users_removed": user_list,
+                "users_removed_count": len(user_list),
+                "status": "participants_removed",
+                "message": "Call participants removed successfully",
+                "call_info": {
+                    "call_id": id,
+                    "title": call_info.get("title", ""),
+                    "created_by": call_info.get("created_by", ""),
+                    "date_start": call_info.get("date_start", 0),
+                    "date_end": call_info.get("date_end", 0),
+                    "was_ended": call_info.get("was_ended", False),
+                    "participants_count": call_info.get("participants_count", 0),
+                    "participants_removed": user_list,
+                    "participants_removed_count": len(user_list)
+                },
+                "removal_details": {
+                    "call_id": id,
+                    "users_removed": user_list,
+                    "users_removed_count": len(user_list),
+                    "removal_successful": True,
+                    "remaining_participants": call_info.get("participants_count", 0) - len(user_list)
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to remove call participants. The bot needs calls:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs calls:write scope to remove call participants.",
+                "successful": False
+            }
+        elif error_code == 'call_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified call was not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_call_id':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid call ID provided.",
+                "successful": False
+            }
+        elif error_code == 'user_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more specified users were not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_users':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid user IDs provided.",
+                "successful": False
+            }
+        elif error_code == 'not_in_call':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOne or more users are not participants in the call.",
+                "successful": False
+            }
+        elif error_code == 'call_ended':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe call has already ended.",
+                "successful": False
+            }
+        elif error_code == 'insufficient_permissions':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to remove participants from this call.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_remove_reaction_from_item(
+    name: str,
+    channel: str = "",
+    file: str = "",
+    file_comment: str = "",
+    timestamp: str = ""
+) -> dict:
+    """
+    Removes an emoji reaction from a message, file, or file comment in slack.
+    
+    Args:
+        name (str): Emoji reaction name to remove (required)
+        channel (str): Channel ID for message reactions (optional)
+        file (str): File ID for file reactions (optional)
+        file_comment (str): File comment ID for file comment reactions (optional)
+        timestamp (str): Message timestamp for message reactions (optional)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Prepare parameters for reactions.remove
+        params = {
+            'name': name
+        }
+        
+        # Add parameters based on what's provided
+        if channel:
+            params['channel'] = channel
+        if file:
+            params['file'] = file
+        if file_comment:
+            params['file_comment'] = file_comment
+        if timestamp:
+            params['timestamp'] = timestamp
+        
+        # Validate that at least one identifier is provided
+        if not any([channel, file, file_comment]):
+            return {
+                "data": {},
+                "error": "At least one identifier must be provided: channel, file, or file_comment",
+                "successful": False
+            }
+        
+        # Use the reactions.remove method
+        response = client.reactions_remove(**params)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to remove reactions. The bot needs reactions:write scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs reactions:write scope to remove reactions.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'file_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified file was not found.",
+                    "successful": False
+                }
+            elif error == 'file_comment_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified file comment was not found.",
+                    "successful": False
+                }
+            elif error == 'message_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified message was not found.",
+                    "successful": False
+                }
+            elif error == 'no_reaction':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified reaction does not exist on this item.",
+                    "successful": False
+                }
+            elif error == 'invalid_name':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid reaction name provided.",
+                    "successful": False
+                }
+            elif error == 'invalid_timestamp':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid timestamp format. Please provide a valid timestamp.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe bot is not a member of the specified channel.",
+                    "successful": False
+                }
+            elif error == 'cant_remove_reaction':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot remove this reaction. The reaction may not exist or may not be accessible.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to remove reaction: {error}",
+                    "successful": False
+                }
+        
+        # Get the item information from the response
+        item_info = response.data.get("item", {})
+        
+        # Format the item information
+        item_data = {
+            "type": item_info.get("type", ""),
+            "channel": item_info.get("channel", ""),
+            "message": item_info.get("message", {}),
+            "file": item_info.get("file", {}),
+            "comment": item_info.get("comment", {}),
+            "reactions": item_info.get("reactions", []),
+            "item_type": item_info.get("type", "unknown"),
+            "reaction_removed": True
+        }
+        
+        # Add message details if available
+        if item_info.get("message"):
+            message = item_info.get("message", {})
+            item_data["message_details"] = {
+                "text": message.get("text", ""),
+                "user": message.get("user", ""),
+                "ts": message.get("ts", ""),
+                "type": message.get("type", ""),
+                "subtype": message.get("subtype", ""),
+                "attachments": message.get("attachments", []),
+                "blocks": message.get("blocks", []),
+                "reactions": message.get("reactions", []),
+                "thread_ts": message.get("thread_ts", ""),
+                "reply_count": message.get("reply_count", 0),
+                "reply_users_count": message.get("reply_users_count", 0),
+                "latest_reply": message.get("latest_reply", ""),
+                "is_starred": message.get("is_starred", False),
+                "pinned_to": message.get("pinned_to", []),
+                "permalink": message.get("permalink", "")
+            }
+        
+        # Add file details if available
+        if item_info.get("file"):
+            file_info = item_info.get("file", {})
+            item_data["file_details"] = {
+                "id": file_info.get("id", ""),
+                "name": file_info.get("name", ""),
+                "title": file_info.get("title", ""),
+                "mimetype": file_info.get("mimetype", ""),
+                "filetype": file_info.get("filetype", ""),
+                "pretty_type": file_info.get("pretty_type", ""),
+                "size": file_info.get("size", 0),
+                "url_private": file_info.get("url_private", ""),
+                "url_private_download": file_info.get("url_private_download", ""),
+                "thumb_360": file_info.get("thumb_360", ""),
+                "thumb_360_w": file_info.get("thumb_360_w", 0),
+                "thumb_360_h": file_info.get("thumb_360_h", 0),
+                "permalink": file_info.get("permalink", ""),
+                "permalink_public": file_info.get("permalink_public", ""),
+                "is_external": file_info.get("is_external", False),
+                "is_public": file_info.get("is_public", False),
+                "is_starred": file_info.get("is_starred", False),
+                "is_tombstoned": file_info.get("is_tombstoned", False),
+                "created": file_info.get("created", 0),
+                "timestamp": file_info.get("timestamp", 0),
+                "user": file_info.get("user", ""),
+                "username": file_info.get("username", ""),
+                "mode": file_info.get("mode", ""),
+                "editable": file_info.get("editable", False),
+                "external_type": file_info.get("external_type", ""),
+                "external_id": file_info.get("external_id", ""),
+                "external_url": file_info.get("external_url", ""),
+                "has_rich_preview": file_info.get("has_rich_preview", False)
+            }
+        
+        # Add comment details if available
+        if item_info.get("comment"):
+            comment = item_info.get("comment", {})
+            item_data["comment_details"] = {
+                "id": comment.get("id", ""),
+                "created": comment.get("created", 0),
+                "timestamp": comment.get("timestamp", 0),
+                "user": comment.get("user", ""),
+                "is_intro": comment.get("is_intro", False),
+                "comment": comment.get("comment", ""),
+                "replies": comment.get("replies", []),
+                "reply_count": comment.get("reply_count", 0),
+                "reply_users": comment.get("reply_users", []),
+                "reply_users_count": comment.get("reply_users_count", 0),
+                "latest_reply": comment.get("latest_reply", ""),
+                "is_starred": comment.get("is_starred", False)
+            }
+        
+        # Format remaining reactions
+        remaining_reactions = []
+        for reaction in item_info.get("reactions", []):
+            reaction_info = {
+                "name": reaction.get("name", ""),
+                "count": reaction.get("count", 0),
+                "users": reaction.get("users", []),
+                "is_removed": reaction.get("name", "") == name
+            }
+            remaining_reactions.append(reaction_info)
+        
+        return {
+            "data": {
+                "item": item_data,
+                "reaction_name": name,
+                "channel": channel,
+                "file": file,
+                "file_comment": file_comment,
+                "timestamp": timestamp,
+                "reaction_removed": True,
+                "status": "reaction_removed",
+                "message": "Reaction removed successfully",
+                "remaining_reactions": remaining_reactions,
+                "removal_details": {
+                    "reaction_name": name,
+                    "channel": channel,
+                    "file": file,
+                    "file_comment": file_comment,
+                    "timestamp": timestamp,
+                    "item_type": item_info.get("type", "unknown"),
+                    "reaction_removed": True,
+                    "removal_successful": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to remove reactions. The bot needs reactions:write scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs reactions:write scope to remove reactions.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'file_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified file was not found.",
+                "successful": False
+            }
+        elif error_code == 'file_comment_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified file comment was not found.",
+                "successful": False
+            }
+        elif error_code == 'message_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified message was not found.",
+                "successful": False
+            }
+        elif error_code == 'no_reaction':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified reaction does not exist on this item.",
+                "successful": False
+            }
+        elif error_code == 'invalid_name':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid reaction name provided.",
+                "successful": False
+            }
+        elif error_code == 'invalid_timestamp':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid timestamp format. Please provide a valid timestamp.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the specified channel.",
+                "successful": False
+            }
+        elif error_code == 'cant_remove_reaction':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot remove this reaction. The reaction may not exist or may not be accessible.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_rename_a_conversation(
+    channel: str,
+    name: str
+) -> dict:
+    """
+    Renames a slack channel, automatically adjusting the new name to meet naming conventions 
+    (e.g., converting to lowercase), which may affect integrations using the old name.
+    
+    Args:
+        channel (str): Channel ID to rename
+        name (str): New name for the channel
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the conversations.rename method
+        response = client.conversations_rename(channel=channel, name=name)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to rename channels. The bot needs channels:manage scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs channels:manage scope to rename channels.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_name':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid channel name provided. Channel names must be 21 characters or less and contain only lowercase letters, numbers, hyphens, and underscores.",
+                    "successful": False
+                }
+            elif error == 'name_taken':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nChannel name is already taken. Please choose a different name.",
+                    "successful": False
+                }
+            elif error == 'restricted_action':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action is restricted. The channel may have restrictions on renaming.",
+                    "successful": False
+                }
+            elif error == 'method_not_supported_for_channel_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis method is not supported for the specified channel type.",
+                    "successful": False
+                }
+            elif error == 'is_archived':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe channel is archived and cannot be renamed.",
+                    "successful": False
+                }
+            elif error == 'cant_rename_general':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot rename the #general channel.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe bot is not a member of the specified channel.",
+                    "successful": False
+                }
+            elif error == 'invalid_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid channel ID provided.",
+                    "successful": False
+                }
+            elif error == 'too_long':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nChannel name is too long. Maximum length is 21 characters.",
+                    "successful": False
+                }
+            elif error == 'too_short':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nChannel name is too short. Minimum length is 1 character.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to rename channel: {error}",
+                    "successful": False
+                }
+        
+        # Get the channel information from the response
+        channel_info = response.data.get("channel", {})
+        
+        # Format the channel information
+        channel_data = {
+            "id": channel_info.get("id", ""),
+            "name": channel_info.get("name", ""),
+            "is_channel": channel_info.get("is_channel", False),
+            "is_group": channel_info.get("is_group", False),
+            "is_im": channel_info.get("is_im", False),
+            "is_mpim": channel_info.get("is_mpim", False),
+            "is_private": channel_info.get("is_private", False),
+            "is_archived": channel_info.get("is_archived", False),
+            "is_general": channel_info.get("is_general", False),
+            "is_member": channel_info.get("is_member", False),
+            "is_muted": channel_info.get("is_muted", False),
+            "is_open": channel_info.get("is_open", False),
+            "created": channel_info.get("created", 0),
+            "creator": channel_info.get("creator", ""),
+            "num_members": channel_info.get("num_members", 0),
+            "topic": channel_info.get("topic", {}),
+            "purpose": channel_info.get("purpose", {}),
+            "previous_names": channel_info.get("previous_names", []),
+            "priority": channel_info.get("priority", 0),
+            "channel_type": "channel" if channel_info.get("is_channel") else "group" if channel_info.get("is_group") else "im" if channel_info.get("is_im") else "mpim" if channel_info.get("is_mpim") else "unknown",
+            "conversation_type": {
+                "is_dm": channel_info.get("is_im", False),
+                "is_group_dm": channel_info.get("is_mpim", False),
+                "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False))
+            },
+            "membership_info": {
+                "is_member": channel_info.get("is_member", False),
+                "is_muted": channel_info.get("is_muted", False),
+                "is_open": channel_info.get("is_open", False),
+                "num_members": channel_info.get("num_members", 0)
+            },
+            "metadata": {
+                "created": channel_info.get("created", 0),
+                "creator": channel_info.get("creator", ""),
+                "is_archived": channel_info.get("is_archived", False),
+                "is_general": channel_info.get("is_general", False),
+                "previous_names": channel_info.get("previous_names", [])
+            }
+        }
+        
+        # Add topic and purpose information
+        if channel_info.get("topic"):
+            topic = channel_info.get("topic", {})
+            channel_data["topic_info"] = {
+                "value": topic.get("value", ""),
+                "creator": topic.get("creator", ""),
+                "last_set": topic.get("last_set", 0)
+            }
+        
+        if channel_info.get("purpose"):
+            purpose = channel_info.get("purpose", {})
+            channel_data["purpose_info"] = {
+                "value": purpose.get("value", ""),
+                "creator": purpose.get("creator", ""),
+                "last_set": purpose.get("last_set", 0)
+            }
+        
+        return {
+            "data": {
+                "channel": channel_data,
+                "old_name": name,
+                "new_name": channel_info.get("name", ""),
+                "channel_id": channel,
+                "rename_successful": True,
+                "status": "channel_renamed",
+                "message": "Channel renamed successfully",
+                "rename_details": {
+                    "channel_id": channel,
+                    "old_name": name,
+                    "new_name": channel_info.get("name", ""),
+                    "name_changed": name != channel_info.get("name", ""),
+                    "channel_type": channel_data["channel_type"],
+                    "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                    "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False)),
+                    "rename_successful": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to rename channels. The bot needs channels:manage scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:manage scope to rename channels.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_name':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid channel name provided. Channel names must be 21 characters or less and contain only lowercase letters, numbers, hyphens, and underscores.",
+                "successful": False
+            }
+        elif error_code == 'name_taken':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nChannel name is already taken. Please choose a different name.",
+                "successful": False
+            }
+        elif error_code == 'restricted_action':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action is restricted. The channel may have restrictions on renaming.",
+                "successful": False
+            }
+        elif error_code == 'method_not_supported_for_channel_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis method is not supported for the specified channel type.",
+                "successful": False
+            }
+        elif error_code == 'is_archived':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe channel is archived and cannot be renamed.",
+                "successful": False
+            }
+        elif error_code == 'cant_rename_general':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot rename the #general channel.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the specified channel.",
+                "successful": False
+            }
+        elif error_code == 'invalid_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid channel ID provided.",
+                "successful": False
+            }
+        elif error_code == 'too_long':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nChannel name is too long. Maximum length is 21 characters.",
+                "successful": False
+            }
+        elif error_code == 'too_short':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nChannel name is too short. Minimum length is 1 character.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_rename_an_emoji(
+    name: str,
+    new_name: str,
+    token: str
+) -> dict:
+    """
+    Renames an existing custom emoji in a slack workspace, updating all its instances.
+    
+    Args:
+        name (str): Current name of the emoji to rename
+        new_name (str): New name for the emoji
+        token (str): Authentication token (can be bot token or user token)
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        # Use the provided token to create a client
+        client = WebClient(token=token)
+        
+        # Use the admin.emoji.rename method
+        response = client.admin_emoji_rename(name=name, new_name=new_name)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your token.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your token.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to rename emojis. This requires Enterprise Grid admin permissions.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required permissions. Emoji renaming requires Enterprise Grid admin access.",
+                    "successful": False
+                }
+            elif error == 'emoji_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified emoji '{name}' was not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_name':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid emoji name provided. Emoji names must be 2-21 characters and contain only lowercase letters, numbers, hyphens, and underscores.",
+                    "successful": False
+                }
+            elif error == 'name_taken':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nEmoji name '{new_name}' is already taken. Please choose a different name.",
+                    "successful": False
+                }
+            elif error == 'restricted_action':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action is restricted. You may not have permission to rename emojis.",
+                    "successful": False
+                }
+            elif error == 'not_admin':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOnly workspace admins can rename emojis.",
+                    "successful": False
+                }
+            elif error == 'feature_disabled':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCustom emojis are disabled for this workspace.",
+                    "successful": False
+                }
+            elif error == 'too_long':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nEmoji name is too long. Maximum length is 21 characters.",
+                    "successful": False
+                }
+            elif error == 'too_short':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nEmoji name is too short. Minimum length is 2 characters.",
+                    "successful": False
+                }
+            elif error == 'invalid_characters':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nEmoji name contains invalid characters. Only lowercase letters, numbers, hyphens, and underscores are allowed.",
+                    "successful": False
+                }
+            elif error == 'emoji_already_exists':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAn emoji with the name '{new_name}' already exists.",
+                    "successful": False
+                }
+            elif error == 'emoji_rename_failed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nFailed to rename the emoji. This may be due to the emoji being in use or other restrictions.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to rename emoji: {error}",
+                    "successful": False
+                }
+        
+        # Get the emoji information from the response
+        emoji_info = response.data.get("emoji", {})
+        
+        # Format the emoji information
+        emoji_data = {
+            "name": emoji_info.get("name", ""),
+            "url": emoji_info.get("url", ""),
+            "alias": emoji_info.get("alias", ""),
+            "created": emoji_info.get("created", 0),
+            "created_by": emoji_info.get("created_by", ""),
+            "is_alias": emoji_info.get("is_alias", False),
+            "is_bad": emoji_info.get("is_bad", False),
+            "is_public": emoji_info.get("is_public", False),
+            "is_restricted": emoji_info.get("is_restricted", False),
+            "is_team_custom": emoji_info.get("is_team_custom", False),
+            "is_workflow_step": emoji_info.get("is_workflow_step", False),
+            "original_name": emoji_info.get("original_name", ""),
+            "previous_names": emoji_info.get("previous_names", []),
+            "renamed_from": name,
+            "renamed_to": new_name,
+            "rename_successful": True,
+            "emoji_type": "custom" if emoji_info.get("is_team_custom") else "alias" if emoji_info.get("is_alias") else "unknown",
+            "access_info": {
+                "is_public": emoji_info.get("is_public", False),
+                "is_restricted": emoji_info.get("is_restricted", False),
+                "is_team_custom": emoji_info.get("is_team_custom", False)
+            },
+            "creation_info": {
+                "created": emoji_info.get("created", 0),
+                "created_by": emoji_info.get("created_by", ""),
+                "original_name": emoji_info.get("original_name", "")
+            },
+            "status_info": {
+                "is_bad": emoji_info.get("is_bad", False),
+                "is_workflow_step": emoji_info.get("is_workflow_step", False),
+                "is_alias": emoji_info.get("is_alias", False)
+            }
+        }
+        
+        return {
+            "data": {
+                "emoji": emoji_data,
+                "old_name": name,
+                "new_name": new_name,
+                "rename_successful": True,
+                "status": "emoji_renamed",
+                "message": "Emoji renamed successfully",
+                "rename_details": {
+                    "old_name": name,
+                    "new_name": new_name,
+                    "emoji_name": emoji_info.get("name", ""),
+                    "name_changed": name != emoji_info.get("name", ""),
+                    "emoji_type": emoji_data["emoji_type"],
+                    "is_custom_emoji": emoji_info.get("is_team_custom", False),
+                    "is_alias": emoji_info.get("is_alias", False),
+                    "is_public": emoji_info.get("is_public", False),
+                    "is_restricted": emoji_info.get("is_restricted", False),
+                    "rename_successful": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your token.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your token.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to rename emojis. This requires Enterprise Grid admin permissions.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required permissions. Emoji renaming requires Enterprise Grid admin access.",
+                "successful": False
+            }
+        elif error_code == 'emoji_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified emoji '{name}' was not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_name':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid emoji name provided. Emoji names must be 2-21 characters and contain only lowercase letters, numbers, hyphens, and underscores.",
+                "successful": False
+            }
+        elif error_code == 'name_taken':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nEmoji name '{new_name}' is already taken. Please choose a different name.",
+                "successful": False
+            }
+        elif error_code == 'restricted_action':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action is restricted. You may not have permission to rename emojis.",
+                "successful": False
+            }
+        elif error_code == 'not_admin':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOnly workspace admins can rename emojis.",
+                "successful": False
+            }
+        elif error_code == 'feature_disabled':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCustom emojis are disabled for this workspace.",
+                "successful": False
+            }
+        elif error_code == 'too_long':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nEmoji name is too long. Maximum length is 21 characters.",
+                "successful": False
+            }
+        elif error_code == 'too_short':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nEmoji name is too short. Minimum length is 2 characters.",
+                "successful": False
+            }
+        elif error_code == 'invalid_characters':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nEmoji name contains invalid characters. Only lowercase letters, numbers, hyphens, and underscores are allowed.",
+                "successful": False
+            }
+        elif error_code == 'emoji_already_exists':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAn emoji with the name '{new_name}' already exists.",
+                "successful": False
+            }
+        elif error_code == 'emoji_rename_failed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nFailed to rename the emoji. This may be due to the emoji being in use or other restrictions.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_rename_a_slack_channel(
+    channel_id: str,
+    name: str
+) -> dict:
+    """
+    Renames a public or private slack channel; for enterprise grid workspaces, 
+    the user must be a workspace admin or channel manager.
+    
+    Args:
+        channel_id (str): Channel ID to rename
+        name (str): New name for the channel
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the conversations.rename method
+        response = client.conversations_rename(channel=channel_id, name=name)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to rename channels. The bot needs channels:manage scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs channels:manage scope to rename channels.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'invalid_name':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid channel name provided. Channel names must be 21 characters or less and contain only lowercase letters, numbers, hyphens, and underscores.",
+                    "successful": False
+                }
+            elif error == 'name_taken':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nChannel name is already taken. Please choose a different name.",
+                    "successful": False
+                }
+            elif error == 'restricted_action':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action is restricted. The channel may have restrictions on renaming.",
+                    "successful": False
+                }
+            elif error == 'method_not_supported_for_channel_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis method is not supported for the specified channel type.",
+                    "successful": False
+                }
+            elif error == 'is_archived':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe channel is archived and cannot be renamed.",
+                    "successful": False
+                }
+            elif error == 'cant_rename_general':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nCannot rename the #general channel.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe bot is not a member of the specified channel.",
+                    "successful": False
+                }
+            elif error == 'invalid_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid channel ID provided.",
+                    "successful": False
+                }
+            elif error == 'too_long':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nChannel name is too long. Maximum length is 21 characters.",
+                    "successful": False
+                }
+            elif error == 'too_short':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nChannel name is too short. Minimum length is 1 character.",
+                    "successful": False
+                }
+            elif error == 'enterprise_grid_required':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis action requires Enterprise Grid workspace with admin or channel manager permissions.",
+                    "successful": False
+                }
+            elif error == 'not_admin':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nOnly workspace admins or channel managers can rename channels in Enterprise Grid workspaces.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to rename channel: {error}",
+                    "successful": False
+                }
+        
+        # Get the channel information from the response
+        channel_info = response.data.get("channel", {})
+        
+        # Format the channel information
+        channel_data = {
+            "id": channel_info.get("id", ""),
+            "name": channel_info.get("name", ""),
+            "is_channel": channel_info.get("is_channel", False),
+            "is_group": channel_info.get("is_group", False),
+            "is_im": channel_info.get("is_im", False),
+            "is_mpim": channel_info.get("is_mpim", False),
+            "is_private": channel_info.get("is_private", False),
+            "is_archived": channel_info.get("is_archived", False),
+            "is_general": channel_info.get("is_general", False),
+            "is_member": channel_info.get("is_member", False),
+            "is_muted": channel_info.get("is_muted", False),
+            "is_open": channel_info.get("is_open", False),
+            "created": channel_info.get("created", 0),
+            "creator": channel_info.get("creator", ""),
+            "num_members": channel_info.get("num_members", 0),
+            "topic": channel_info.get("topic", {}),
+            "purpose": channel_info.get("purpose", {}),
+            "previous_names": channel_info.get("previous_names", []),
+            "priority": channel_info.get("priority", 0),
+            "channel_type": "channel" if channel_info.get("is_channel") else "group" if channel_info.get("is_group") else "im" if channel_info.get("is_im") else "mpim" if channel_info.get("is_mpim") else "unknown",
+            "conversation_type": {
+                "is_dm": channel_info.get("is_im", False),
+                "is_group_dm": channel_info.get("is_mpim", False),
+                "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False))
+            },
+            "membership_info": {
+                "is_member": channel_info.get("is_member", False),
+                "is_muted": channel_info.get("is_muted", False),
+                "is_open": channel_info.get("is_open", False),
+                "num_members": channel_info.get("num_members", 0)
+            },
+            "metadata": {
+                "created": channel_info.get("created", 0),
+                "creator": channel_info.get("creator", ""),
+                "is_archived": channel_info.get("is_archived", False),
+                "is_general": channel_info.get("is_general", False),
+                "previous_names": channel_info.get("previous_names", [])
+            }
+        }
+        
+        # Add topic and purpose information
+        if channel_info.get("topic"):
+            topic = channel_info.get("topic", {})
+            channel_data["topic_info"] = {
+                "value": topic.get("value", ""),
+                "creator": topic.get("creator", ""),
+                "last_set": topic.get("last_set", 0)
+            }
+        
+        if channel_info.get("purpose"):
+            purpose = channel_info.get("purpose", {})
+            channel_data["purpose_info"] = {
+                "value": purpose.get("value", ""),
+                "creator": purpose.get("creator", ""),
+                "last_set": purpose.get("last_set", 0)
+            }
+        
+        return {
+            "data": {
+                "channel": channel_data,
+                "old_name": name,
+                "new_name": channel_info.get("name", ""),
+                "channel_id": channel_id,
+                "rename_successful": True,
+                "status": "channel_renamed",
+                "message": "Channel renamed successfully",
+                "rename_details": {
+                    "channel_id": channel_id,
+                    "old_name": name,
+                    "new_name": channel_info.get("name", ""),
+                    "name_changed": name != channel_info.get("name", ""),
+                    "channel_type": channel_data["channel_type"],
+                    "is_public_channel": channel_info.get("is_channel", False) and not channel_info.get("is_private", False),
+                    "is_private_channel": channel_info.get("is_group", False) or (channel_info.get("is_channel", False) and channel_info.get("is_private", False)),
+                    "rename_successful": True
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to rename channels. The bot needs channels:manage scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:manage scope to rename channels.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'invalid_name':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid channel name provided. Channel names must be 21 characters or less and contain only lowercase letters, numbers, hyphens, and underscores.",
+                "successful": False
+            }
+        elif error_code == 'name_taken':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nChannel name is already taken. Please choose a different name.",
+                "successful": False
+            }
+        elif error_code == 'restricted_action':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action is restricted. The channel may have restrictions on renaming.",
+                "successful": False
+            }
+        elif error_code == 'method_not_supported_for_channel_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis method is not supported for the specified channel type.",
+                "successful": False
+            }
+        elif error_code == 'is_archived':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe channel is archived and cannot be renamed.",
+                "successful": False
+            }
+        elif error_code == 'cant_rename_general':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nCannot rename the #general channel.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the specified channel.",
+                "successful": False
+            }
+        elif error_code == 'invalid_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid channel ID provided.",
+                "successful": False
+            }
+        elif error_code == 'too_long':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nChannel name is too long. Maximum length is 21 characters.",
+                "successful": False
+            }
+        elif error_code == 'too_short':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nChannel name is too short. Minimum length is 1 character.",
+                "successful": False
+            }
+        elif error_code == 'enterprise_grid_required':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis action requires Enterprise Grid workspace with admin or channel manager permissions.",
+                "successful": False
+            }
+        elif error_code == 'not_admin':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nOnly workspace admins or channel managers can rename channels in Enterprise Grid workspaces.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_retrieve_a_user_s_identity_details() -> dict:
+    """
+    Retrieves the authenticated user's and their team's identity, with details varying 
+    based on oauth scopes (e.g., identity.basic, identity.email, identity.avatar).
+    
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the auth.test method to get identity information
+        response = client.auth_test()
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to retrieve identity details: {error}",
+                    "successful": False
+                }
+        
+        # Get the identity information from the response
+        identity_data = response.data
+        
+        # Format the identity information
+        identity_details = {
+            "user_id": identity_data.get("user_id", ""),
+            "user": identity_data.get("user", ""),
+            "team_id": identity_data.get("team_id", ""),
+            "team": identity_data.get("team", ""),
+            "url": identity_data.get("url", ""),
+            "bot_id": identity_data.get("bot_id", ""),
+            "is_enterprise_install": identity_data.get("is_enterprise_install", False),
+            "enterprise_id": identity_data.get("enterprise_id", ""),
+            "app_id": identity_data.get("app_id", ""),
+            "authentication_type": "bot" if identity_data.get("bot_id") else "user",
+            "workspace_info": {
+                "team_id": identity_data.get("team_id", ""),
+                "team": identity_data.get("team", ""),
+                "url": identity_data.get("url", ""),
+                "is_enterprise_install": identity_data.get("is_enterprise_install", False),
+                "enterprise_id": identity_data.get("enterprise_id", "")
+            },
+            "user_info": {
+                "user_id": identity_data.get("user_id", ""),
+                "user": identity_data.get("user", ""),
+                "bot_id": identity_data.get("bot_id", "")
+            },
+            "app_info": {
+                "app_id": identity_data.get("app_id", ""),
+                "bot_id": identity_data.get("bot_id", "")
+            }
+        }
+        
+        # Add enterprise information if available
+        if identity_data.get("enterprise_id"):
+            identity_details["enterprise_info"] = {
+                "enterprise_id": identity_data.get("enterprise_id", ""),
+                "is_enterprise_install": identity_data.get("is_enterprise_install", False)
+            }
+        
+        # Add additional details based on available scopes
+        if identity_data.get("user"):
+            identity_details["user_details"] = {
+                "user_id": identity_data.get("user_id", ""),
+                "username": identity_data.get("user", ""),
+                "bot_id": identity_data.get("bot_id", ""),
+                "is_bot": bool(identity_data.get("bot_id"))
+            }
+        
+        if identity_data.get("team"):
+            identity_details["team_details"] = {
+                "team_id": identity_data.get("team_id", ""),
+                "team_name": identity_data.get("team", ""),
+                "workspace_url": identity_data.get("url", ""),
+                "is_enterprise": identity_data.get("is_enterprise_install", False)
+            }
+        
+        return {
+            "data": {
+                "identity": identity_details,
+                "authentication_status": "authenticated",
+                "token_type": "bot" if identity_data.get("bot_id") else "user",
+                "workspace_type": "enterprise" if identity_data.get("is_enterprise_install") else "standard",
+                "status": "identity_retrieved",
+                "message": "User identity details retrieved successfully",
+                "identity_summary": {
+                    "user_id": identity_data.get("user_id", ""),
+                    "team_id": identity_data.get("team_id", ""),
+                    "bot_id": identity_data.get("bot_id", ""),
+                    "is_enterprise": identity_data.get("is_enterprise_install", False),
+                    "workspace_url": identity_data.get("url", ""),
+                    "authentication_type": "bot" if identity_data.get("bot_id") else "user"
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_retrieve_call_information(
+    id: str
+) -> dict:
+    """
+    Retrieves a point-in-time snapshot of a specific slack call's information.
+    
+    Args:
+        id (str): Call ID to retrieve information for
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the calls.info method
+        response = client.calls_info(id=id)
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'call_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified call was not found.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to retrieve call information. The bot needs calls:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs calls:read scope to retrieve call information.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to retrieve call information: {error}",
+                    "successful": False
+                }
+        
+        # Get the call information from the response
+        call_info = response.data.get("call", {})
+        
+        # Format the call information
+        call_data = {
+            "id": call_info.get("id", ""),
+            "date_start": call_info.get("date_start", 0),
+            "external_unique_id": call_info.get("external_unique_id", ""),
+            "join_url": call_info.get("join_url", ""),
+            "desktop_app_join_url": call_info.get("desktop_app_join_url", ""),
+            "external_display_id": call_info.get("external_display_id", ""),
+            "title": call_info.get("title", ""),
+            "created_by": call_info.get("created_by", ""),
+            "date_end": call_info.get("date_end", 0),
+            "channels": call_info.get("channels", []),
+            "was_rejected": call_info.get("was_rejected", False),
+            "was_missed": call_info.get("was_missed", False),
+            "was_accepted": call_info.get("was_accepted", False),
+            "call_type": call_info.get("call_type", ""),
+            "status": call_info.get("status", ""),
+            "participants": call_info.get("participants", []),
+            "call_duration": call_info.get("date_end", 0) - call_info.get("date_start", 0) if call_info.get("date_end") and call_info.get("date_start") else 0,
+            "is_active": call_info.get("status") == "active",
+            "is_ended": call_info.get("status") == "ended",
+            "call_info": {
+                "id": call_info.get("id", ""),
+                "title": call_info.get("title", ""),
+                "status": call_info.get("status", ""),
+                "call_type": call_info.get("call_type", ""),
+                "created_by": call_info.get("created_by", ""),
+                "date_start": call_info.get("date_start", 0),
+                "date_end": call_info.get("date_end", 0),
+                "duration": call_info.get("date_end", 0) - call_info.get("date_start", 0) if call_info.get("date_end") and call_info.get("date_start") else 0
+            },
+            "participation_info": {
+                "participants": call_info.get("participants", []),
+                "channels": call_info.get("channels", []),
+                "was_accepted": call_info.get("was_accepted", False),
+                "was_rejected": call_info.get("was_rejected", False),
+                "was_missed": call_info.get("was_missed", False)
+            },
+            "external_info": {
+                "external_unique_id": call_info.get("external_unique_id", ""),
+                "external_display_id": call_info.get("external_display_id", ""),
+                "join_url": call_info.get("join_url", ""),
+                "desktop_app_join_url": call_info.get("desktop_app_join_url", "")
+            }
+        }
+        
+        return {
+            "data": {
+                "call": call_data,
+                "call_id": id,
+                "retrieval_successful": True,
+                "status": "call_info_retrieved",
+                "message": "Call information retrieved successfully",
+                "call_summary": {
+                    "id": call_info.get("id", ""),
+                    "title": call_info.get("title", ""),
+                    "status": call_info.get("status", ""),
+                    "call_type": call_info.get("call_type", ""),
+                    "is_active": call_info.get("status") == "active",
+                    "participants_count": len(call_info.get("participants", [])),
+                    "channels_count": len(call_info.get("channels", [])),
+                    "duration": call_data["call_duration"]
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'call_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified call was not found.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to retrieve call information. The bot needs calls:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs calls:read scope to retrieve call information.",
+                "successful": False
+            }
+        return {
+            "data": {},
+            "error": f"Slack API Error: {error_code}",
+            "successful": False
+        }
+    except Exception as e:
+        return {
+            "data": {},
+            "error": f"Unexpected error: {str(e)}",
+            "successful": False
+        }
+
+@mcp.tool()
+async def slack_retrieve_conversation_information(
+    channel: str,
+    include_locale: bool = False,
+    include_num_members: bool = False
+) -> dict:
+    """
+    Retrieves metadata for a slack conversation by id (e.g., name, purpose, creation date, 
+    with options for member count/locale), excluding message content; requires a valid channel id.
+    
+    Args:
+        channel (str): Channel ID to retrieve information for
+        include_locale (bool): Whether to include locale information
+        include_num_members (bool): Whether to include member count
+        
+    Returns:
+        dict: Response with data, error, and successful fields
+    """
+    try:
+        client = get_slack_client()
+        
+        # Use the conversations.info method
+        response = client.conversations_info(
+            channel=channel,
+            include_locale=include_locale,
+            include_num_members=include_num_members
+        )
+        
+        if not response.data.get("ok", False):
+            error = response.data.get('error', 'Unknown error')
+            if error == 'not_authed':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'invalid_auth':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                    "successful": False
+                }
+            elif error == 'account_inactive':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token belongs to a deactivated user.",
+                    "successful": False
+                }
+            elif error == 'token_revoked':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe authentication token has been revoked.",
+                    "successful": False
+                }
+            elif error == 'no_permission':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInsufficient permissions to retrieve conversation information. The bot needs channels:read scope.",
+                    "successful": False
+                }
+            elif error == 'missing_scope':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nMissing required OAuth scope. The bot needs channels:read scope to retrieve conversation information.",
+                    "successful": False
+                }
+            elif error == 'channel_not_found':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe specified channel was not found.",
+                    "successful": False
+                }
+            elif error == 'not_in_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThe bot is not a member of the specified channel.",
+                    "successful": False
+                }
+            elif error == 'invalid_channel':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nInvalid channel ID provided.",
+                    "successful": False
+                }
+            elif error == 'method_not_supported_for_channel_type':
+                return {
+                    "data": {},
+                    "error": f"Slack API Error: {error}\n\nThis method is not supported for the specified channel type.",
+                    "successful": False
+                }
+            else:
+                return {
+                    "data": {},
+                    "error": f"Failed to retrieve conversation information: {error}",
+                    "successful": False
+                }
+        
+        # Get the conversation information from the response
+        conversation_info = response.data.get("channel", {})
+        
+        # Format the conversation information
+        conversation_data = {
+            "id": conversation_info.get("id", ""),
+            "name": conversation_info.get("name", ""),
+            "is_channel": conversation_info.get("is_channel", False),
+            "is_group": conversation_info.get("is_group", False),
+            "is_im": conversation_info.get("is_im", False),
+            "is_mpim": conversation_info.get("is_mpim", False),
+            "is_private": conversation_info.get("is_private", False),
+            "is_archived": conversation_info.get("is_archived", False),
+            "is_general": conversation_info.get("is_general", False),
+            "is_member": conversation_info.get("is_member", False),
+            "is_muted": conversation_info.get("is_muted", False),
+            "is_open": conversation_info.get("is_open", False),
+            "created": conversation_info.get("created", 0),
+            "creator": conversation_info.get("creator", ""),
+            "num_members": conversation_info.get("num_members", 0),
+            "topic": conversation_info.get("topic", {}),
+            "purpose": conversation_info.get("purpose", {}),
+            "previous_names": conversation_info.get("previous_names", []),
+            "priority": conversation_info.get("priority", 0),
+            "locale": conversation_info.get("locale", "") if include_locale else "",
+            "channel_type": "channel" if conversation_info.get("is_channel") else "group" if conversation_info.get("is_group") else "im" if conversation_info.get("is_im") else "mpim" if conversation_info.get("is_mpim") else "unknown",
+            "conversation_type": {
+                "is_dm": conversation_info.get("is_im", False),
+                "is_group_dm": conversation_info.get("is_mpim", False),
+                "is_public_channel": conversation_info.get("is_channel", False) and not conversation_info.get("is_private", False),
+                "is_private_channel": conversation_info.get("is_group", False) or (conversation_info.get("is_channel", False) and conversation_info.get("is_private", False))
+            },
+            "membership_info": {
+                "is_member": conversation_info.get("is_member", False),
+                "is_muted": conversation_info.get("is_muted", False),
+                "is_open": conversation_info.get("is_open", False),
+                "num_members": conversation_info.get("num_members", 0)
+            },
+            "metadata": {
+                "created": conversation_info.get("created", 0),
+                "creator": conversation_info.get("creator", ""),
+                "is_archived": conversation_info.get("is_archived", False),
+                "is_general": conversation_info.get("is_general", False),
+                "previous_names": conversation_info.get("previous_names", []),
+                "priority": conversation_info.get("priority", 0)
+            }
+        }
+        
+        # Add topic and purpose information
+        if conversation_info.get("topic"):
+            topic = conversation_info.get("topic", {})
+            conversation_data["topic_info"] = {
+                "value": topic.get("value", ""),
+                "creator": topic.get("creator", ""),
+                "last_set": topic.get("last_set", 0)
+            }
+        
+        if conversation_info.get("purpose"):
+            purpose = conversation_info.get("purpose", {})
+            conversation_data["purpose_info"] = {
+                "value": purpose.get("value", ""),
+                "creator": purpose.get("creator", ""),
+                "last_set": purpose.get("last_set", 0)
+            }
+        
+        # Add locale information if requested
+        if include_locale and conversation_info.get("locale"):
+            conversation_data["locale_info"] = {
+                "locale": conversation_info.get("locale", ""),
+                "language": conversation_info.get("locale", "").split("_")[0] if conversation_info.get("locale") else "",
+                "country": conversation_info.get("locale", "").split("_")[1] if conversation_info.get("locale") and "_" in conversation_info.get("locale", "") else ""
+            }
+        
+        return {
+            "data": {
+                "conversation": conversation_data,
+                "channel_id": channel,
+                "retrieval_successful": True,
+                "status": "conversation_info_retrieved",
+                "message": "Conversation information retrieved successfully",
+                "conversation_summary": {
+                    "id": conversation_info.get("id", ""),
+                    "name": conversation_info.get("name", ""),
+                    "channel_type": conversation_data["channel_type"],
+                    "is_private": conversation_info.get("is_private", False),
+                    "is_archived": conversation_info.get("is_archived", False),
+                    "is_member": conversation_info.get("is_member", False),
+                    "num_members": conversation_info.get("num_members", 0),
+                    "created": conversation_info.get("created", 0),
+                    "creator": conversation_info.get("creator", "")
+                }
+            },
+            "error": "",
+            "successful": True
+        }
+        
+    except SlackApiError as e:
+        error_code = e.response.get('error', 'unknown_error')
+        if error_code == 'not_authed':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nAuthentication failed. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'invalid_auth':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid authentication token. Please check your SLACK_BOT_TOKEN.",
+                "successful": False
+            }
+        elif error_code == 'account_inactive':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token belongs to a deactivated user.",
+                "successful": False
+            }
+        elif error_code == 'token_revoked':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe authentication token has been revoked.",
+                "successful": False
+            }
+        elif error_code == 'no_permission':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInsufficient permissions to retrieve conversation information. The bot needs channels:read scope.",
+                "successful": False
+            }
+        elif error_code == 'missing_scope':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nMissing required OAuth scope. The bot needs channels:read scope to retrieve conversation information.",
+                "successful": False
+            }
+        elif error_code == 'channel_not_found':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe specified channel was not found.",
+                "successful": False
+            }
+        elif error_code == 'not_in_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThe bot is not a member of the specified channel.",
+                "successful": False
+            }
+        elif error_code == 'invalid_channel':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nInvalid channel ID provided.",
+                "successful": False
+            }
+        elif error_code == 'method_not_supported_for_channel_type':
+            return {
+                "data": {},
+                "error": f"Slack API Error: {error_code}\n\nThis method is not supported for the specified channel type.",
                 "successful": False
             }
         return {
