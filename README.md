@@ -450,32 +450,7 @@ Complete Slack call integration for meeting management and participant coordinat
 ### 🔄 **Real-Time Features**
 RTM support for real-time event streaming and live updates.
 
-## 📄 License
 
-This project is open source and available under the MIT License.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📞 Support
-
-For issues and questions:
-- Check the troubleshooting section above
-- Review Slack API documentation
-- Open an issue on GitHub
-
----
 
 **Made with ❤️ for the Slack and MCP community**
 
-## 🔗 Related Resources
-
-- [Slack API Documentation](https://api.slack.com/)
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-- [FastMCP Documentation](https://github.com/jlowin/fastmcp)
-- [Slack SDK for Python](https://slack.dev/python-slack-sdk/)
