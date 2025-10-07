@@ -1,0 +1,2149 @@
+{
+  "slack_mcp_server": {
+    "name": "Slack MCP Server",
+    "version": "1.0.0",
+    "description": "A comprehensive Model Context Protocol server for Slack integration with 117+ tools covering messaging, channels, users, calls, user groups, and more.",
+    "author": "Slack MCP Community",
+    "license": "MIT",
+    "repository": "https://github.com/your-org/slack-mcp",
+    "documentation": "https://github.com/your-org/slack-mcp/blob/main/README.md",
+    "server_file": "slack_mcp_server_simple.py",
+    "total_tools": 117,
+    "categories": {
+      "do_not_disturb": {
+        "name": "Do Not Disturb & Presence Management",
+        "description": "Tools for managing DND status, snooze mode, and user presence",
+        "tools_count": 10,
+        "tools": [
+          {
+            "name": "slack_activate_or_modify_do_not_disturb_duration",
+            "description": "Set or modify the Do Not Disturb duration for your Slack workspace",
+            "parameters": {
+              "num_minutes": {
+                "type": "string",
+                "required": true,
+                "description": "Number of minutes for DND duration"
+              }
+            },
+            "scopes": ["dnd:write", "users:read"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_end_user_do_not_disturb_session",
+            "description": "End the current Do Not Disturb session",
+            "parameters": {},
+            "scopes": ["dnd:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_end_snooze",
+            "description": "End snooze mode immediately",
+            "parameters": {},
+            "scopes": ["dnd:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_end_user_snooze_mode_immediately",
+            "description": "End user snooze mode immediately",
+            "parameters": {},
+            "scopes": ["dnd:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_set_dnd_duration",
+            "description": "Set Do Not Disturb duration",
+            "parameters": {
+              "num_minutes": {
+                "type": "string",
+                "required": true,
+                "description": "Number of minutes for DND duration"
+              }
+            },
+            "scopes": ["dnd:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_set_user_presence",
+            "description": "Set user presence status (auto or away)",
+            "parameters": {
+              "presence": {
+                "type": "string",
+                "required": true,
+                "description": "Presence status (auto or away)"
+              }
+            },
+            "scopes": ["users:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_get_user_presence_info",
+            "description": "Get user presence information",
+            "parameters": {
+              "user": {
+                "type": "string",
+                "required": true,
+                "description": "User ID to get presence for"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_current_user_dnd_status",
+            "description": "Get current user DND status",
+            "parameters": {
+              "user": {
+                "type": "string",
+                "required": true,
+                "description": "User ID to get DND status for"
+              }
+            },
+            "scopes": ["dnd:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_fetch_dnd_status_for_multiple_team_members",
+            "description": "Get DND status for multiple team members",
+            "parameters": {
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["dnd:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_get_team_dnd_status",
+            "description": "Get team DND status for multiple users",
+            "parameters": {
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["dnd:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "messaging": {
+        "name": "Messaging & Communication",
+        "description": "Tools for sending, updating, and managing messages",
+        "tools_count": 15,
+        "tools": [
+          {
+            "name": "slack_send_message",
+            "description": "Send a message to a Slack channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID or name"
+              },
+              "text": {
+                "type": "string",
+                "required": false,
+                "description": "Message text"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_sends_a_message_to_a_slack_channel",
+            "description": "Send a message to a Slack channel with options",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID or name"
+              },
+              "text": {
+                "type": "string",
+                "required": false,
+                "description": "Message text"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_send_ephemeral_message",
+            "description": "Send an ephemeral message to a user in a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "user": {
+                "type": "string",
+                "required": true,
+                "description": "User ID to send message to"
+              },
+              "text": {
+                "type": "string",
+                "required": true,
+                "description": "Message text"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_sends_ephemeral_messages_to_channel_users",
+            "description": "Send ephemeral messages to multiple users in a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              },
+              "text": {
+                "type": "string",
+                "required": true,
+                "description": "Message text"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_share_a_me_message_in_a_channel",
+            "description": "Share a 'me' message in a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "text": {
+                "type": "string",
+                "required": true,
+                "description": "Message text"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_schedule_message",
+            "description": "Schedule a message to be sent later",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "text": {
+                "type": "string",
+                "required": true,
+                "description": "Message text"
+              },
+              "post_at": {
+                "type": "string",
+                "required": true,
+                "description": "Unix timestamp for when to send the message"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_schedules_a_message_to_a_channel_at_a_specified_time",
+            "description": "Schedule a message to a channel at a specified time",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "text": {
+                "type": "string",
+                "required": true,
+                "description": "Message text"
+              },
+              "post_at": {
+                "type": "string",
+                "required": true,
+                "description": "Unix timestamp for when to send the message"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_delete_a_scheduled_message_in_a_chat",
+            "description": "Delete a scheduled message",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "scheduled_message_id": {
+                "type": "string",
+                "required": true,
+                "description": "Scheduled message ID"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_deletes_a_message_from_a_chat",
+            "description": "Delete a message from a chat",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "ts": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_updates_a_slack_message",
+            "description": "Update an existing Slack message",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "ts": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              },
+              "text": {
+                "type": "string",
+                "required": false,
+                "description": "New message text"
+              }
+            },
+            "scopes": ["chat:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_search_messages",
+            "description": "Search for messages in the workspace",
+            "parameters": {
+              "query": {
+                "type": "string",
+                "required": true,
+                "description": "Search query"
+              }
+            },
+            "scopes": ["search:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_search_for_messages_with_query",
+            "description": "Search for messages with a specific query",
+            "parameters": {
+              "query": {
+                "type": "string",
+                "required": true,
+                "description": "Search query"
+              }
+            },
+            "scopes": ["search:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_fetch_conversation_history",
+            "description": "Get conversation history",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              }
+            },
+            "scopes": ["channels:history", "groups:history", "im:history", "mpim:history"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_fetch_message_thread_from_a_conversation",
+            "description": "Get message thread from a conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "ts": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["channels:history", "groups:history", "im:history", "mpim:history"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_message_permalink_url",
+            "description": "Get message permalink URL",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "message_ts": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["channels:read", "groups:read", "im:read", "mpim:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "reactions": {
+        "name": "Reactions & Stars",
+        "description": "Tools for managing reactions and starred items",
+        "tools_count": 8,
+        "tools": [
+          {
+            "name": "slack_add_reaction_to_an_item",
+            "description": "Add a reaction to a message or file",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Reaction name (emoji)"
+              },
+              "timestamp": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["reactions:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_remove_reaction_from_item",
+            "description": "Remove a reaction from an item",
+            "parameters": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Reaction name"
+              },
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "timestamp": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["reactions:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_fetch_item_reactions",
+            "description": "Get reactions for an item",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": false,
+                "description": "Channel ID"
+              },
+              "file": {
+                "type": "string",
+                "required": false,
+                "description": "File ID"
+              },
+              "timestamp": {
+                "type": "string",
+                "required": false,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["reactions:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_user_reactions",
+            "description": "List reactions for a user",
+            "parameters": {
+              "user": {
+                "type": "string",
+                "required": true,
+                "description": "User ID"
+              },
+              "count": {
+                "type": "integer",
+                "required": false,
+                "description": "Number of reactions to return"
+              }
+            },
+            "scopes": ["reactions:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_add_a_star_to_an_item",
+            "description": "Add a star to an item",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": false,
+                "description": "Channel ID"
+              },
+              "file": {
+                "type": "string",
+                "required": false,
+                "description": "File ID"
+              },
+              "timestamp": {
+                "type": "string",
+                "required": false,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["stars:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_remove_a_star_from_an_item",
+            "description": "Remove a star from an item",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": false,
+                "description": "Channel ID"
+              },
+              "file": {
+                "type": "string",
+                "required": false,
+                "description": "File ID"
+              },
+              "timestamp": {
+                "type": "string",
+                "required": false,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["stars:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_starred_items",
+            "description": "List starred items",
+            "parameters": {
+              "count": {
+                "type": "integer",
+                "required": false,
+                "description": "Number of items to return"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              }
+            },
+            "scopes": ["stars:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_lists_user_s_starred_items_with_pagination",
+            "description": "List user's starred items with pagination",
+            "parameters": {
+              "count": {
+                "type": "integer",
+                "required": false,
+                "description": "Number of items to return"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              }
+            },
+            "scopes": ["stars:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "pins": {
+        "name": "Pins & Bookmarks",
+        "description": "Tools for managing pinned items and bookmarks",
+        "tools_count": 3,
+        "tools": [
+          {
+            "name": "slack_pins_an_item_to_a_channel",
+            "description": "Pin an item to a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "timestamp": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["pins:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_unpin_item_from_channel",
+            "description": "Unpin an item from a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "timestamp": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              }
+            },
+            "scopes": ["pins:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_lists_pinned_items_in_a_channel",
+            "description": "List pinned items in a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["pins:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "channels": {
+        "name": "Channels & Conversations",
+        "description": "Tools for managing channels and conversations",
+        "tools_count": 20,
+        "tools": [
+          {
+            "name": "slack_create_channel",
+            "description": "Create a new channel",
+            "parameters": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Channel name"
+              },
+              "is_private": {
+                "type": "boolean",
+                "required": false,
+                "description": "Whether the channel is private"
+              }
+            },
+            "scopes": ["channels:write", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_create_channel_based_conversation",
+            "description": "Create a channel-based conversation",
+            "parameters": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Channel name"
+              },
+              "is_private": {
+                "type": "boolean",
+                "required": true,
+                "description": "Whether the channel is private"
+              }
+            },
+            "scopes": ["channels:write", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_archive_a_public_or_private_channel",
+            "description": "Archive a public or private channel",
+            "parameters": {
+              "channel_id": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_archive_a_slack_conversation",
+            "description": "Archive a Slack conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_unarchive_a_public_or_private_channel",
+            "description": "Unarchive a public or private channel",
+            "parameters": {
+              "channel_id": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_unarchive_channel",
+            "description": "Unarchive a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_delete_a_public_or_private_channel",
+            "description": "Delete a public or private channel",
+            "parameters": {
+              "channel_id": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_rename_a_slack_channel",
+            "description": "Rename a Slack channel",
+            "parameters": {
+              "channel_id": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "New channel name"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_rename_a_conversation",
+            "description": "Rename a conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "New conversation name"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_set_a_conversation_s_purpose",
+            "description": "Set a conversation's purpose",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "purpose": {
+                "type": "string",
+                "required": true,
+                "description": "Conversation purpose"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_set_the_topic_of_a_conversation",
+            "description": "Set the topic of a conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "topic": {
+                "type": "string",
+                "required": true,
+                "description": "Conversation topic"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_join_an_existing_conversation",
+            "description": "Join an existing conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:join", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_leave_a_conversation",
+            "description": "Leave a conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:write", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_close_dm_or_multi_person_dm",
+            "description": "Close a DM or multi-person DM",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["im:write", "mpim:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_open_dm",
+            "description": "Open a DM",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": false,
+                "description": "Channel ID"
+              },
+              "return_im": {
+                "type": "boolean",
+                "required": false,
+                "description": "Whether to return IM info"
+              }
+            },
+            "scopes": ["im:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_open_or_resume_direct_or_multi_person_messages",
+            "description": "Open or resume direct or multi-person messages",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": false,
+                "description": "Channel ID"
+              },
+              "return_im": {
+                "type": "boolean",
+                "required": false,
+                "description": "Whether to return IM info"
+              }
+            },
+            "scopes": ["im:write", "mpim:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_invite_users_to_a_slack_channel",
+            "description": "Invite users to a Slack channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["channels:write", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_invite_user_to_channel",
+            "description": "Invite a user to a channel",
+            "parameters": {
+              "channel_id": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "user_ids": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["channels:write", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_remove_a_user_from_a_conversation",
+            "description": "Remove a user from a conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "user": {
+                "type": "string",
+                "required": true,
+                "description": "User ID"
+              }
+            },
+            "scopes": ["channels:manage", "groups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_all_channels",
+            "description": "List all channels",
+            "parameters": {
+              "channel_name": {
+                "type": "string",
+                "required": false,
+                "description": "Channel name filter"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              }
+            },
+            "scopes": ["channels:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "users": {
+        "name": "Users & User Management",
+        "description": "Tools for managing users and user information",
+        "tools_count": 15,
+        "tools": [
+          {
+            "name": "slack_list_all_users",
+            "description": "List all users in the workspace",
+            "parameters": {
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              },
+              "include_locale": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include locale information"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_all_slack_team_users_with_pagination",
+            "description": "List all Slack team users with pagination",
+            "parameters": {
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              },
+              "include_locale": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include locale information"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_find_users",
+            "description": "Find users by search query",
+            "parameters": {
+              "search_query": {
+                "type": "string",
+                "required": true,
+                "description": "Search query"
+              },
+              "exact_match": {
+                "type": "boolean",
+                "required": false,
+                "description": "Whether to do exact match"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_lookup_users_by_email",
+            "description": "Lookup users by email address",
+            "parameters": {
+              "email": {
+                "type": "string",
+                "required": true,
+                "description": "Email address"
+              }
+            },
+            "scopes": ["users:read.email"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_invite_user_to_workspace",
+            "description": "Invite a user to the workspace",
+            "parameters": {
+              "email": {
+                "type": "string",
+                "required": true,
+                "description": "Email address"
+              },
+              "channel_ids": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of channel IDs"
+              }
+            },
+            "scopes": ["users:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_invite_user_to_workspace_with_optional_channel_invites",
+            "description": "Invite a user to workspace with optional channel invites",
+            "parameters": {
+              "email": {
+                "type": "string",
+                "required": true,
+                "description": "Email address"
+              },
+              "channel_ids": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of channel IDs"
+              }
+            },
+            "scopes": ["users:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_detailed_user_information",
+            "description": "Get detailed user information",
+            "parameters": {
+              "user": {
+                "type": "string",
+                "required": true,
+                "description": "User ID"
+              },
+              "include_locale": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include locale information"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_user_profile_information",
+            "description": "Get user profile information",
+            "parameters": {
+              "include_labels": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include labels"
+              },
+              "user": {
+                "type": "string",
+                "required": false,
+                "description": "User ID"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_a_user_s_identity_details",
+            "description": "Get user identity details",
+            "parameters": {},
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_set_slack_user_profile_information",
+            "description": "Set Slack user profile information",
+            "parameters": {
+              "user": {
+                "type": "string",
+                "required": true,
+                "description": "User ID"
+              },
+              "profile": {
+                "type": "string",
+                "required": true,
+                "description": "Profile information JSON"
+              }
+            },
+            "scopes": ["users:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_set_profile_photo",
+            "description": "Set user profile photo",
+            "parameters": {
+              "image": {
+                "type": "string",
+                "required": true,
+                "description": "Image data or URL"
+              }
+            },
+            "scopes": ["users:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_set_user_profile_photo_with_cropping_options",
+            "description": "Set user profile photo with cropping options",
+            "parameters": {
+              "image": {
+                "type": "string",
+                "required": true,
+                "description": "Image data or URL"
+              },
+              "crop_x": {
+                "type": "integer",
+                "required": false,
+                "description": "Crop X coordinate"
+              },
+              "crop_y": {
+                "type": "integer",
+                "required": false,
+                "description": "Crop Y coordinate"
+              },
+              "crop_w": {
+                "type": "integer",
+                "required": false,
+                "description": "Crop width"
+              }
+            },
+            "scopes": ["users:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_delete_user_profile_photo",
+            "description": "Delete user profile photo",
+            "parameters": {
+              "token": {
+                "type": "string",
+                "required": true,
+                "description": "User token"
+              }
+            },
+            "scopes": ["users:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_list_admin_users",
+            "description": "List admin users",
+            "parameters": {
+              "team_id": {
+                "type": "string",
+                "required": true,
+                "description": "Team ID"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_conversation_members_list",
+            "description": "Get conversation members list",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              }
+            },
+            "scopes": ["channels:read", "groups:read", "im:read", "mpim:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "user_groups": {
+        "name": "User Groups",
+        "description": "Tools for managing user groups and their members",
+        "tools_count": 7,
+        "tools": [
+          {
+            "name": "slack_create_a_slack_user_group",
+            "description": "Create a Slack user group",
+            "parameters": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "User group name"
+              },
+              "channels": {
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated list of channel IDs"
+              },
+              "description": {
+                "type": "string",
+                "required": false,
+                "description": "User group description"
+              },
+              "handle": {
+                "type": "string",
+                "required": false,
+                "description": "User group handle"
+              },
+              "include_count": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include member count"
+              }
+            },
+            "scopes": ["usergroups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_update_an_existing_slack_user_group",
+            "description": "Update an existing Slack user group",
+            "parameters": {
+              "usergroup": {
+                "type": "string",
+                "required": true,
+                "description": "User group ID"
+              },
+              "channels": {
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated list of channel IDs"
+              },
+              "description": {
+                "type": "string",
+                "required": false,
+                "description": "User group description"
+              },
+              "handle": {
+                "type": "string",
+                "required": false,
+                "description": "User group handle"
+              },
+              "include_count": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include member count"
+              },
+              "name": {
+                "type": "string",
+                "required": false,
+                "description": "User group name"
+              }
+            },
+            "scopes": ["usergroups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_update_user_group_members",
+            "description": "Update user group members",
+            "parameters": {
+              "usergroup": {
+                "type": "string",
+                "required": true,
+                "description": "User group ID"
+              },
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              },
+              "include_count": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include member count"
+              }
+            },
+            "scopes": ["usergroups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_disable_an_existing_slack_user_group",
+            "description": "Disable an existing Slack user group",
+            "parameters": {
+              "usergroup": {
+                "type": "string",
+                "required": true,
+                "description": "User group ID"
+              },
+              "include_count": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include member count"
+              }
+            },
+            "scopes": ["usergroups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_enable_a_specified_user_group",
+            "description": "Enable a specified user group",
+            "parameters": {
+              "usergroup": {
+                "type": "string",
+                "required": true,
+                "description": "User group ID"
+              },
+              "include_count": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include member count"
+              }
+            },
+            "scopes": ["usergroups:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_user_groups_for_team_with_options",
+            "description": "List user groups for team with options",
+            "parameters": {
+              "include_count": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include member count"
+              },
+              "include_disabled": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include disabled groups"
+              },
+              "include_users": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include user information"
+              }
+            },
+            "scopes": ["usergroups:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_all_users_in_a_user_group",
+            "description": "List all users in a user group",
+            "parameters": {
+              "usergroup": {
+                "type": "string",
+                "required": true,
+                "description": "User group ID"
+              },
+              "include_disabled": {
+                "type": "boolean",
+                "required": false,
+                "description": "Include disabled users"
+              }
+            },
+            "scopes": ["usergroups:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "calls": {
+        "name": "Calls & Meetings",
+        "description": "Tools for managing Slack calls and meetings",
+        "tools_count": 9,
+        "tools": [
+          {
+            "name": "slack_start_call",
+            "description": "Start a call",
+            "parameters": {
+              "join_url": {
+                "type": "string",
+                "required": true,
+                "description": "Join URL for the call"
+              },
+              "created_by": {
+                "type": "string",
+                "required": false,
+                "description": "User ID who created the call"
+              },
+              "date_start": {
+                "type": "integer",
+                "required": false,
+                "description": "Call start timestamp"
+              },
+              "desktop_app_join_url": {
+                "type": "string",
+                "required": false,
+                "description": "Desktop app join URL"
+              },
+              "external_display_id": {
+                "type": "string",
+                "required": false,
+                "description": "External display ID"
+              },
+              "external_unique_id": {
+                "type": "string",
+                "required": false,
+                "description": "External unique ID for the call"
+              },
+              "title": {
+                "type": "string",
+                "required": false,
+                "description": "Call title"
+              },
+              "users": {
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_registers_a_new_call_with_participants",
+            "description": "Register a new call with participants",
+            "parameters": {
+              "external_unique_id": {
+                "type": "string",
+                "required": true,
+                "description": "External unique ID"
+              },
+              "join_url": {
+                "type": "string",
+                "required": true,
+                "description": "Join URL"
+              },
+              "created_by": {
+                "type": "string",
+                "required": true,
+                "description": "User ID who created the call"
+              },
+              "date_start": {
+                "type": "integer",
+                "required": false,
+                "description": "Call start timestamp"
+              },
+              "desktop_app_join_url": {
+                "type": "string",
+                "required": false,
+                "description": "Desktop app join URL"
+              },
+              "external_display_id": {
+                "type": "string",
+                "required": false,
+                "description": "External display ID"
+              },
+              "title": {
+                "type": "string",
+                "required": false,
+                "description": "Call title"
+              },
+              "users": {
+                "type": "string",
+                "required": false,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_add_call_participants",
+            "description": "Add participants to a call",
+            "parameters": {
+              "id": {
+                "type": "string",
+                "required": true,
+                "description": "Call ID"
+              },
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_remove_call_participants",
+            "description": "Remove participants from a call",
+            "parameters": {
+              "id": {
+                "type": "string",
+                "required": true,
+                "description": "Call ID"
+              },
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_register_call_participants_removal",
+            "description": "Register call participants removal",
+            "parameters": {
+              "id": {
+                "type": "string",
+                "required": true,
+                "description": "Call ID"
+              },
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_registers_new_call_participants",
+            "description": "Register new call participants",
+            "parameters": {
+              "id": {
+                "type": "string",
+                "required": true,
+                "description": "Call ID"
+              },
+              "users": {
+                "type": "string",
+                "required": true,
+                "description": "Comma-separated list of user IDs"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_call_information",
+            "description": "Get call information",
+            "parameters": {
+              "id": {
+                "type": "string",
+                "required": true,
+                "description": "Call ID"
+              }
+            },
+            "scopes": ["calls:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_update_slack_call_information",
+            "description": "Update call information",
+            "parameters": {
+              "id": {
+                "type": "string",
+                "required": true,
+                "description": "Call ID"
+              },
+              "desktop_app_join_url": {
+                "type": "string",
+                "required": false,
+                "description": "New desktop app join URL"
+              },
+              "join_url": {
+                "type": "string",
+                "required": false,
+                "description": "New join URL"
+              },
+              "title": {
+                "type": "string",
+                "required": false,
+                "description": "New call title"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_end_a_call_with_duration_and_id",
+            "description": "End a call with duration and ID",
+            "parameters": {
+              "id": {
+                "type": "string",
+                "required": true,
+                "description": "Call ID"
+              },
+              "duration": {
+                "type": "integer",
+                "required": false,
+                "description": "Call duration in seconds"
+              }
+            },
+            "scopes": ["calls:write"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "real_time": {
+        "name": "Real-Time Messaging",
+        "description": "Tools for real-time messaging and RTM",
+        "tools_count": 2,
+        "tools": [
+          {
+            "name": "slack_start_real_time_messaging_session",
+            "description": "Start real time messaging session",
+            "parameters": {
+              "batch_presence_aware": {
+                "type": "boolean",
+                "required": false,
+                "description": "Whether to batch presence updates"
+              },
+              "presence_sub": {
+                "type": "boolean",
+                "required": false,
+                "description": "Whether to subscribe to presence updates"
+              }
+            },
+            "scopes": ["rtm:stream"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_set_read_cursor_in_a_conversation",
+            "description": "Set read cursor in a conversation",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "ts": {
+                "type": "string",
+                "required": true,
+                "description": "Timestamp to mark as read"
+              }
+            },
+            "scopes": ["channels:write", "groups:write", "im:write", "mpim:write"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "reminders": {
+        "name": "Reminders & Scheduling",
+        "description": "Tools for managing reminders and scheduled messages",
+        "tools_count": 7,
+        "tools": [
+          {
+            "name": "slack_create_a_reminder",
+            "description": "Create a reminder",
+            "parameters": {
+              "text": {
+                "type": "string",
+                "required": true,
+                "description": "Reminder text"
+              },
+              "time": {
+                "type": "string",
+                "required": true,
+                "description": "Reminder time"
+              },
+              "user": {
+                "type": "string",
+                "required": false,
+                "description": "User ID for the reminder"
+              }
+            },
+            "scopes": ["reminders:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_reminders",
+            "description": "List all reminders",
+            "parameters": {},
+            "scopes": ["reminders:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_user_reminders_with_details",
+            "description": "List user reminders with details",
+            "parameters": {},
+            "scopes": ["reminders:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_get_reminder_information",
+            "description": "Get reminder information",
+            "parameters": {
+              "reminder": {
+                "type": "string",
+                "required": true,
+                "description": "Reminder ID"
+              }
+            },
+            "scopes": ["reminders:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_mark_reminder_as_complete",
+            "description": "Mark reminder as complete",
+            "parameters": {
+              "reminder": {
+                "type": "string",
+                "required": true,
+                "description": "Reminder ID"
+              }
+            },
+            "scopes": ["reminders:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_scheduled_messages",
+            "description": "List scheduled messages",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": false,
+                "description": "Channel ID filter"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              }
+            },
+            "scopes": ["chat:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_list_scheduled_messages_in_a_channel",
+            "description": "List scheduled messages in a channel",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              }
+            },
+            "scopes": ["chat:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "emojis": {
+        "name": "Emojis & Customization",
+        "description": "Tools for managing custom emojis and team customization",
+        "tools_count": 5,
+        "tools": [
+          {
+            "name": "slack_add_a_custom_emoji_to_a_slack_team",
+            "description": "Add a custom emoji to a Slack team",
+            "parameters": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Emoji name"
+              },
+              "token": {
+                "type": "string",
+                "required": true,
+                "description": "User token"
+              },
+              "url": {
+                "type": "string",
+                "required": true,
+                "description": "Emoji URL"
+              }
+            },
+            "scopes": ["emoji:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_add_an_emoji_alias_in_slack",
+            "description": "Add an emoji alias in Slack",
+            "parameters": {
+              "alias_for": {
+                "type": "string",
+                "required": true,
+                "description": "Original emoji name"
+              },
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Alias name"
+              },
+              "token": {
+                "type": "string",
+                "required": true,
+                "description": "User token"
+              }
+            },
+            "scopes": ["emoji:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_add_emoji",
+            "description": "Add emoji",
+            "parameters": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Emoji name"
+              },
+              "token": {
+                "type": "string",
+                "required": true,
+                "description": "User token"
+              },
+              "url": {
+                "type": "string",
+                "required": true,
+                "description": "Emoji URL"
+              }
+            },
+            "scopes": ["emoji:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_rename_an_emoji",
+            "description": "Rename an emoji",
+            "parameters": {
+              "name": {
+                "type": "string",
+                "required": true,
+                "description": "Current emoji name"
+              },
+              "new_name": {
+                "type": "string",
+                "required": true,
+                "description": "New emoji name"
+              },
+              "token": {
+                "type": "string",
+                "required": true,
+                "description": "User token"
+              }
+            },
+            "scopes": ["emoji:write"],
+            "token_type": "user"
+          },
+          {
+            "name": "slack_list_team_custom_emojis",
+            "description": "List team custom emojis",
+            "parameters": {},
+            "scopes": ["emoji:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "url_management": {
+        "name": "URL & Link Management",
+        "description": "Tools for managing URL unfurling and link customization",
+        "tools_count": 2,
+        "tools": [
+          {
+            "name": "slack_customize_url_unfurl",
+            "description": "Customize URL unfurl",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "ts": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              },
+              "unfurls": {
+                "type": "string",
+                "required": true,
+                "description": "Unfurl customization JSON"
+              }
+            },
+            "scopes": ["links:write"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_customize_url_unfurling_in_messages",
+            "description": "Customize URL unfurling in messages",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": true,
+                "description": "Channel ID"
+              },
+              "ts": {
+                "type": "string",
+                "required": true,
+                "description": "Message timestamp"
+              },
+              "unfurls": {
+                "type": "string",
+                "required": true,
+                "description": "Unfurl customization JSON"
+              }
+            },
+            "scopes": ["links:write"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "files": {
+        "name": "Files & Remote Files",
+        "description": "Tools for managing files and remote file operations",
+        "tools_count": 1,
+        "tools": [
+          {
+            "name": "slack_list_remote_files",
+            "description": "List remote files",
+            "parameters": {
+              "channel": {
+                "type": "string",
+                "required": false,
+                "description": "Channel ID filter"
+              },
+              "cursor": {
+                "type": "string",
+                "required": false,
+                "description": "Pagination cursor"
+              },
+              "limit": {
+                "type": "integer",
+                "required": false,
+                "description": "Number of files to return"
+              }
+            },
+            "scopes": ["files:read"],
+            "token_type": "bot"
+          }
+        ]
+      },
+      "team_workspace": {
+        "name": "Team & Workspace",
+        "description": "Tools for managing team and workspace information",
+        "tools_count": 5,
+        "tools": [
+          {
+            "name": "slack_fetch_current_team_info_with_optional_team_scope",
+            "description": "Get current team info with optional team scope",
+            "parameters": {
+              "team": {
+                "type": "string",
+                "required": false,
+                "description": "Team ID"
+              }
+            },
+            "scopes": ["team:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_fetch_team_info",
+            "description": "Get team info",
+            "parameters": {
+              "team": {
+                "type": "string",
+                "required": false,
+                "description": "Team ID"
+              }
+            },
+            "scopes": ["team:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_fetch_workspace_settings_information",
+            "description": "Get workspace settings information",
+            "parameters": {
+              "team_id": {
+                "type": "string",
+                "required": true,
+                "description": "Team ID"
+              }
+            },
+            "scopes": ["team:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_retrieve_team_profile_details",
+            "description": "Get team profile details",
+            "parameters": {
+              "visibility": {
+                "type": "string",
+                "required": false,
+                "description": "Profile visibility"
+              }
+            },
+            "scopes": ["team:read"],
+            "token_type": "bot"
+          },
+          {
+            "name": "slack_fetch_bot_user_information",
+            "description": "Get bot user information",
+            "parameters": {
+              "bot": {
+                "type": "string",
+                "required": true,
+                "description": "Bot user ID"
+              }
+            },
+            "scopes": ["users:read"],
+            "token_type": "bot"
+          }
+        ]
+      }
+    },
+    "required_scopes": {
+      "bot_token": [
+        "chat:write",
+        "chat:write.public",
+        "chat:write.customize",
+        "channels:read",
+        "channels:write",
+        "channels:manage",
+        "channels:join",
+        "channels:history",
+        "groups:read",
+        "groups:write",
+        "groups:manage",
+        "groups:history",
+        "users:read",
+        "users:read.email",
+        "users:write",
+        "usergroups:read",
+        "usergroups:write",
+        "calls:write",
+        "calls:read",
+        "files:read",
+        "files:write",
+        "pins:read",
+        "pins:write",
+        "reactions:read",
+        "reactions:write",
+        "stars:read",
+        "stars:write",
+        "reminders:read",
+        "reminders:write",
+        "search:read",
+        "team:read",
+        "bot",
+        "commands",
+        "incoming-webhook",
+        "app_mentions:read",
+        "emoji:read",
+        "links:read",
+        "links:write",
+        "im:read",
+        "im:write",
+        "im:history",
+        "mpim:read",
+        "mpim:write",
+        "mpim:history",
+        "rtm:stream"
+      ],
+      "user_token": [
+        "dnd:read",
+        "dnd:write",
+        "users:read",
+        "users:write",
+        "emoji:write"
+      ]
+    },
+    "environment_variables": {
+      "required": [
+        "SLACK_BOT_TOKEN",
+        "SLACK_USER_TOKEN"
+      ],
+      "optional": [
+        "SLACK_APP_TOKEN"
+      ]
+    },
+    "server_configuration": {
+      "command": "python",
+      "args": ["slack_mcp_server_simple.py"],
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-your-bot-token-here",
+        "SLACK_USER_TOKEN": "xoxp-your-user-token-here"
+      }
+    },
+    "testing": {
+      "test_file": "test_simple_tool.py",
+      "test_command": "python test_simple_tool.py",
+      "coverage": "Comprehensive error handling and validation"
+    },
+    "documentation": {
+      "readme": "README.md",
+      "api_docs": "https://api.slack.com/",
+      "mcp_docs": "https://modelcontextprotocol.io/",
+      "troubleshooting": "README.md#troubleshooting"
+    },
+    "last_updated": "2024-12-19",
+    "version": "1.0.0"
+  }
+}
