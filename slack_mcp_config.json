@@ -1,0 +1,488 @@
+{
+  "mcpServers": {
+    "slack": {
+      "command": "python",
+      "args": ["slack_mcp_server_simple.py"],
+      "cwd": ".",
+      "env": {
+        "SLACK_BOT_TOKEN": "xoxb-your-bot-token-here",
+        "SLACK_USER_TOKEN": "xoxp-your-user-token-here"
+      },
+      "description": "Slack MCP Server with 117+ tools for comprehensive Slack integration",
+      "version": "1.0.0",
+      "author": "Slack MCP Community",
+      "license": "MIT"
+    }
+  },
+  "server_info": {
+    "name": "Slack MCP Server",
+    "description": "A comprehensive Model Context Protocol server for Slack integration with 117+ tools covering messaging, channels, users, calls, user groups, and more.",
+    "version": "1.0.0",
+    "total_tools": 117,
+    "categories": [
+      "Do Not Disturb & Presence Management",
+      "Messaging & Communication", 
+      "Reactions & Stars",
+      "Pins & Bookmarks",
+      "Channels & Conversations",
+      "Users & User Management",
+      "User Groups",
+      "Calls & Meetings",
+      "Real-Time Messaging",
+      "Reminders & Scheduling",
+      "Emojis & Customization",
+      "URL & Link Management",
+      "Files & Remote Files",
+      "Team & Workspace"
+    ]
+  },
+  "environment": {
+    "required_variables": {
+      "SLACK_BOT_TOKEN": {
+        "description": "Slack Bot User OAuth Token (starts with xoxb-)",
+        "type": "string",
+        "required": true,
+        "example": "xoxb-1234567890-1234567890-abcdefghijklmnopqrstuvwx",
+        "scopes": [
+          "chat:write",
+          "channels:read",
+          "channels:write", 
+          "channels:manage",
+          "users:read",
+          "usergroups:read",
+          "usergroups:write",
+          "calls:write",
+          "files:read",
+          "pins:read",
+          "pins:write",
+          "reactions:read",
+          "reactions:write",
+          "stars:read",
+          "stars:write",
+          "reminders:read",
+          "reminders:write",
+          "search:read",
+          "team:read",
+          "bot",
+          "commands",
+          "incoming-webhook",
+          "app_mentions:read",
+          "emoji:read",
+          "links:read",
+          "links:write",
+          "im:read",
+          "im:write",
+          "im:history",
+          "mpim:read",
+          "mpim:write",
+          "mpim:history",
+          "rtm:stream"
+        ]
+      },
+      "SLACK_USER_TOKEN": {
+        "description": "Slack User OAuth Token (starts with xoxp-) - Required for DND operations",
+        "type": "string", 
+        "required": true,
+        "example": "xoxp-1234567890-1234567890-abcdefghijklmnopqrstuvwx",
+        "scopes": [
+          "dnd:read",
+          "dnd:write",
+          "users:read",
+          "users:write",
+          "emoji:write"
+        ]
+      }
+    },
+    "optional_variables": {
+      "SLACK_APP_TOKEN": {
+        "description": "Slack App-Level Token (starts with xapp-) - For Socket Mode",
+        "type": "string",
+        "required": false,
+        "example": "xapp-1234567890-1234567890-abcdefghijklmnopqrstuvwx",
+        "scopes": [
+          "connections:write"
+        ]
+      }
+    }
+  },
+  "oauth_scopes": {
+    "bot_token_scopes": {
+      "messaging": [
+        "chat:write",
+        "chat:write.public", 
+        "chat:write.customize"
+      ],
+      "channels": [
+        "channels:read",
+        "channels:write",
+        "channels:manage",
+        "channels:join",
+        "channels:history"
+      ],
+      "groups": [
+        "groups:read",
+        "groups:write", 
+        "groups:manage",
+        "groups:history"
+      ],
+      "users": [
+        "users:read",
+        "users:read.email",
+        "users:write"
+      ],
+      "user_groups": [
+        "usergroups:read",
+        "usergroups:write"
+      ],
+      "calls": [
+        "calls:write",
+        "calls:read"
+      ],
+      "files": [
+        "files:read",
+        "files:write"
+      ],
+      "pins": [
+        "pins:read",
+        "pins:write"
+      ],
+      "reactions": [
+        "reactions:read",
+        "reactions:write"
+      ],
+      "stars": [
+        "stars:read",
+        "stars:write"
+      ],
+      "reminders": [
+        "reminders:read",
+        "reminders:write"
+      ],
+      "search": [
+        "search:read"
+      ],
+      "team": [
+        "team:read"
+      ],
+      "bot": [
+        "bot",
+        "commands",
+        "incoming-webhook",
+        "app_mentions:read"
+      ],
+      "emoji": [
+        "emoji:read"
+      ],
+      "links": [
+        "links:read",
+        "links:write"
+      ],
+      "im": [
+        "im:read",
+        "im:write",
+        "im:history"
+      ],
+      "mpim": [
+        "mpim:read",
+        "mpim:write",
+        "mpim:history"
+      ],
+      "rtm": [
+        "rtm:stream"
+      ]
+    },
+    "user_token_scopes": {
+      "dnd": [
+        "dnd:read",
+        "dnd:write"
+      ],
+      "users": [
+        "users:read",
+        "users:write"
+      ],
+      "emoji": [
+        "emoji:write"
+      ]
+    }
+  },
+  "tool_categories": {
+    "do_not_disturb": {
+      "name": "Do Not Disturb & Presence Management",
+      "description": "Tools for managing DND status, snooze mode, and user presence",
+      "tools_count": 10,
+      "key_tools": [
+        "slack_activate_or_modify_do_not_disturb_duration",
+        "slack_end_user_do_not_disturb_session",
+        "slack_set_user_presence",
+        "slack_get_user_presence_info"
+      ],
+      "required_scopes": ["dnd:write", "users:read", "users:write"],
+      "token_type": "user"
+    },
+    "messaging": {
+      "name": "Messaging & Communication", 
+      "description": "Tools for sending, updating, and managing messages",
+      "tools_count": 15,
+      "key_tools": [
+        "slack_send_message",
+        "slack_sends_a_message_to_a_slack_channel",
+        "slack_send_ephemeral_message",
+        "slack_schedule_message",
+        "slack_updates_a_slack_message"
+      ],
+      "required_scopes": ["chat:write", "chat:write.public"],
+      "token_type": "bot"
+    },
+    "reactions": {
+      "name": "Reactions & Stars",
+      "description": "Tools for managing reactions and starred items", 
+      "tools_count": 8,
+      "key_tools": [
+        "slack_add_reaction_to_an_item",
+        "slack_remove_reaction_from_item",
+        "slack_add_a_star_to_an_item",
+        "slack_list_starred_items"
+      ],
+      "required_scopes": ["reactions:read", "reactions:write", "stars:read", "stars:write"],
+      "token_type": "bot"
+    },
+    "pins": {
+      "name": "Pins & Bookmarks",
+      "description": "Tools for managing pinned items and bookmarks",
+      "tools_count": 3,
+      "key_tools": [
+        "slack_pins_an_item_to_a_channel",
+        "slack_unpin_item_from_channel",
+        "slack_lists_pinned_items_in_a_channel"
+      ],
+      "required_scopes": ["pins:read", "pins:write"],
+      "token_type": "bot"
+    },
+    "channels": {
+      "name": "Channels & Conversations",
+      "description": "Tools for managing channels and conversations",
+      "tools_count": 20,
+      "key_tools": [
+        "slack_create_channel",
+        "slack_archive_a_public_or_private_channel",
+        "slack_unarchive_a_public_or_private_channel",
+        "slack_rename_a_slack_channel",
+        "slack_invite_users_to_a_slack_channel"
+      ],
+      "required_scopes": ["channels:read", "channels:write", "channels:manage", "groups:read", "groups:write"],
+      "token_type": "bot"
+    },
+    "users": {
+      "name": "Users & User Management",
+      "description": "Tools for managing users and user information",
+      "tools_count": 15,
+      "key_tools": [
+        "slack_list_all_users",
+        "slack_find_users",
+        "slack_lookup_users_by_email",
+        "slack_invite_user_to_workspace",
+        "slack_retrieve_detailed_user_information"
+      ],
+      "required_scopes": ["users:read", "users:write", "users:read.email"],
+      "token_type": "bot"
+    },
+    "user_groups": {
+      "name": "User Groups",
+      "description": "Tools for managing user groups and their members",
+      "tools_count": 7,
+      "key_tools": [
+        "slack_create_a_slack_user_group",
+        "slack_update_an_existing_slack_user_group",
+        "slack_update_user_group_members",
+        "slack_list_user_groups_for_team_with_options"
+      ],
+      "required_scopes": ["usergroups:read", "usergroups:write"],
+      "token_type": "bot"
+    },
+    "calls": {
+      "name": "Calls & Meetings",
+      "description": "Tools for managing Slack calls and meetings",
+      "tools_count": 9,
+      "key_tools": [
+        "slack_start_call",
+        "slack_add_call_participants",
+        "slack_remove_call_participants",
+        "slack_retrieve_call_information",
+        "slack_end_a_call_with_duration_and_id"
+      ],
+      "required_scopes": ["calls:write", "calls:read"],
+      "token_type": "bot"
+    },
+    "real_time": {
+      "name": "Real-Time Messaging",
+      "description": "Tools for real-time messaging and RTM",
+      "tools_count": 2,
+      "key_tools": [
+        "slack_start_real_time_messaging_session",
+        "slack_set_read_cursor_in_a_conversation"
+      ],
+      "required_scopes": ["rtm:stream", "channels:write", "groups:write", "im:write", "mpim:write"],
+      "token_type": "bot"
+    },
+    "reminders": {
+      "name": "Reminders & Scheduling",
+      "description": "Tools for managing reminders and scheduled messages",
+      "tools_count": 7,
+      "key_tools": [
+        "slack_create_a_reminder",
+        "slack_list_reminders",
+        "slack_mark_reminder_as_complete",
+        "slack_list_scheduled_messages"
+      ],
+      "required_scopes": ["reminders:read", "reminders:write", "chat:read"],
+      "token_type": "bot"
+    },
+    "emojis": {
+      "name": "Emojis & Customization",
+      "description": "Tools for managing custom emojis and team customization",
+      "tools_count": 5,
+      "key_tools": [
+        "slack_add_a_custom_emoji_to_a_slack_team",
+        "slack_add_an_emoji_alias_in_slack",
+        "slack_rename_an_emoji",
+        "slack_list_team_custom_emojis"
+      ],
+      "required_scopes": ["emoji:read", "emoji:write"],
+      "token_type": "user"
+    },
+    "url_management": {
+      "name": "URL & Link Management",
+      "description": "Tools for managing URL unfurling and link customization",
+      "tools_count": 2,
+      "key_tools": [
+        "slack_customize_url_unfurl",
+        "slack_customize_url_unfurling_in_messages"
+      ],
+      "required_scopes": ["links:read", "links:write"],
+      "token_type": "bot"
+    },
+    "files": {
+      "name": "Files & Remote Files",
+      "description": "Tools for managing files and remote file operations",
+      "tools_count": 1,
+      "key_tools": [
+        "slack_list_remote_files"
+      ],
+      "required_scopes": ["files:read"],
+      "token_type": "bot"
+    },
+    "team_workspace": {
+      "name": "Team & Workspace",
+      "description": "Tools for managing team and workspace information",
+      "tools_count": 5,
+      "key_tools": [
+        "slack_fetch_current_team_info_with_optional_team_scope",
+        "slack_fetch_team_info",
+        "slack_fetch_workspace_settings_information",
+        "slack_retrieve_team_profile_details",
+        "slack_fetch_bot_user_information"
+      ],
+      "required_scopes": ["team:read", "users:read"],
+      "token_type": "bot"
+    }
+  },
+  "setup_instructions": {
+    "step_1": {
+      "title": "Install Dependencies",
+      "description": "Install required Python packages",
+      "command": "pip install fastmcp slack-sdk python-dotenv"
+    },
+    "step_2": {
+      "title": "Create Slack App",
+      "description": "Set up a Slack app with required scopes",
+      "url": "https://api.slack.com/apps",
+      "instructions": [
+        "Go to api.slack.com/apps",
+        "Click 'Create New App' → 'From scratch'",
+        "Enter app name and select your workspace",
+        "Go to 'OAuth & Permissions' and add required scopes",
+        "Click 'Install to Workspace'",
+        "Copy the 'Bot User OAuth Token' (starts with xoxb-)",
+        "Copy the 'User OAuth Token' (starts with xoxp-)"
+      ]
+    },
+    "step_3": {
+      "title": "Configure Environment",
+      "description": "Set up environment variables",
+      "instructions": [
+        "Create a .env file in your project directory",
+        "Add SLACK_BOT_TOKEN=xoxb-your-bot-token-here",
+        "Add SLACK_USER_TOKEN=xoxp-your-user-token-here"
+      ]
+    },
+    "step_4": {
+      "title": "Run the Server",
+      "description": "Start the MCP server",
+      "command": "python slack_mcp_server_simple.py"
+    },
+    "step_5": {
+      "title": "Test the Setup",
+      "description": "Verify the server is working",
+      "command": "python test_simple_tool.py"
+    }
+  },
+  "testing": {
+    "test_file": "test_simple_tool.py",
+    "test_command": "python test_simple_tool.py",
+    "expected_output": [
+      "🧪 Testing SLACK_ACTIVATE_OR_MODIFY_DO_NOT_DISTURB_DURATION tool...",
+      "Result: ✅ DND set for 30 minutes",
+      "Invalid input result: ❌ Invalid input: 'invalid' is not a valid number"
+    ],
+    "coverage": "Comprehensive error handling and validation for all 117 tools"
+  },
+  "troubleshooting": {
+    "common_issues": {
+      "missing_bot_token": {
+        "error": "SLACK_BOT_TOKEN environment variable is required",
+        "solution": "Set your bot token in .env file or environment: export SLACK_BOT_TOKEN=xoxb-your-token-here"
+      },
+      "missing_user_token": {
+        "error": "SLACK_USER_TOKEN environment variable is required", 
+        "solution": "Set your user token in .env file or environment: export SLACK_USER_TOKEN=xoxp-your-token-here"
+      },
+      "module_not_found": {
+        "error": "ModuleNotFoundError: No module named 'slack_sdk'",
+        "solution": "Install required dependencies: pip install slack-sdk"
+      },
+      "permission_denied": {
+        "error": "Permission denied errors",
+        "solution": "Ensure your Slack app has the required OAuth scopes and verify your tokens are correct"
+      },
+      "missing_scope": {
+        "error": "missing_scope errors",
+        "solution": "Add the required scopes to your Slack app and reinstall the app to your workspace"
+      }
+    }
+  },
+  "documentation": {
+    "readme": "README.md",
+    "api_documentation": "https://api.slack.com/",
+    "mcp_documentation": "https://modelcontextprotocol.io/",
+    "fastmcp_documentation": "https://github.com/jlowin/fastmcp",
+    "slack_sdk_documentation": "https://slack.dev/python-slack-sdk/"
+  },
+  "project_structure": {
+    "files": {
+      "slack_mcp_server_simple.py": "Main server file with 117+ tools",
+      "test_simple_tool.py": "Test script for validation",
+      "requirements.txt": "Python dependencies",
+      "README.md": "Complete documentation",
+      "mcp_config.json": "MCP Inspector configuration",
+      "slack_tools_metadata.json": "Comprehensive tool metadata",
+      "slack_mcp_config.json": "This configuration file"
+    }
+  },
+  "version_info": {
+    "slack_mcp_server": "1.0.0",
+    "fastmcp": ">=0.1.0",
+    "slack_sdk": ">=3.21.0",
+    "python": ">=3.10",
+    "last_updated": "2024-12-19"
+  }
+}
